@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  fleetops-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fleetops-app-prod
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - DATABASE_URL=postgresql://fleetops_admin:fleetops_secure_pass_2026@postgres:5432/fleetops_db
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_ENABLED=true
+      - AUTH_REQUIRED=true
+      - SECRET_KEY=${SECRET_KEY:-fleetops-prod-secret-key-change-me-94829384729}
+      - LOG_JSON_FORMAT=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: fleetops-postgres
+    environment:
+      POSTGRES_USER: fleetops_admin
+      POSTGRES_PASSWORD: fleetops_secure_pass_2026
+      POSTGRES_DB: fleetops_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleetops_admin -d fleetops_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: fleetops-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: fleetops-gateway
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    command: >
+      caddy reverse-proxy --from :80 --to fleetops-app:8000
+    depends_on:
+      - fleetops-app
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  fleetops-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fleetops-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DATABASE_URL=sqlite:///./fleetops.db
+      - REDIS_ENABLED=false
+      - AUTH_REQUIRED=false
+    volumes:
+      - fleetops-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  fleetops-data:
