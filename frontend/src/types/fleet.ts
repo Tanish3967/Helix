@@ -31,6 +31,10 @@ export interface Vehicle {
   assigned_order_ids: string[];
   fault_details?: string | null;
   telemetry_health: string;
+  odometer_km?: number;
+  depot_id?: string;
+  tenant_id?: string;
+  dtc_faults?: string[];
 }
 
 export interface Order {

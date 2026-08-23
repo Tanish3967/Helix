@@ -15,6 +15,7 @@ import { AnalyticsModal } from './components/AnalyticsModal';
 import { SettingsModal } from './components/SettingsModal';
 import { IncidentsModal } from './components/IncidentsModal';
 import { DeliveriesModal } from './components/DeliveriesModal';
+import { DriverCompanionModal } from './components/DriverCompanionModal';
 import { CommandBar } from './components/CommandBar';
 import { DynamicLoadingScreen } from './components/DynamicLoadingScreen';
 import { SimulationState, Vehicle, Route } from './types/fleet';
@@ -26,6 +27,7 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('operations');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedDepot, setSelectedDepot] = useState<string>('ALL');
 
   // Modals
   const [isConsoleOpen, setIsConsoleOpen] = useState<boolean>(false);
@@ -36,6 +38,7 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isIncidentsOpen, setIsIncidentsOpen] = useState<boolean>(false);
   const [isDeliveriesOpen, setIsDeliveriesOpen] = useState<boolean>(false);
+  const [isDriverModalOpen, setIsDriverModalOpen] = useState<boolean>(false);
   const [isCommandOpen, setIsCommandOpen] = useState<boolean>(false);
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
@@ -207,7 +210,10 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const vehicles = state?.vehicles || [];
+  const rawVehicles = state?.vehicles || [];
+  const vehicles = selectedDepot === 'ALL' 
+    ? rawVehicles 
+    : rawVehicles.filter(v => (v as any).depot_id === selectedDepot || v.id.slice(-1) === selectedDepot.slice(-1));
   const orders = state?.orders || [];
   const routes = state?.routes || [];
   const activeIncident = state?.active_incident;
@@ -241,8 +247,7 @@ export const App: React.FC = () => {
         setIsAnalyticsOpen(true);
         break;
       case 'simulation':
-        setConsoleInitialTab('disruptions');
-        setIsConsoleOpen(true);
+        setIsScenariosOpen(true);
         break;
       case 'reports':
         setIsDeliveriesOpen(true);
@@ -298,8 +303,6 @@ export const App: React.FC = () => {
             break;
         }
         break;
-      // sim_config / reset / incident round-trip through the WebSocket, so the
-      // dashboard updates itself — no extra client action needed.
       default:
         break;
     }
@@ -330,6 +333,9 @@ export const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
         soundEnabled={soundEnabled}
         onToggleSound={() => setSoundEnabled(!soundEnabled)}
+        selectedDepot={selectedDepot}
+        onSelectDepot={setSelectedDepot}
+        onOpenDriverModal={() => setIsDriverModalOpen(true)}
       />
 
       {/* Main Command Center Grid */}
@@ -455,6 +461,13 @@ export const App: React.FC = () => {
         onClose={() => setIsDeliveriesOpen(false)}
         orders={orders}
         onSelectVehicle={setSelectedVehicleId}
+      />
+
+      <DriverCompanionModal
+        isOpen={isDriverModalOpen}
+        onClose={() => setIsDriverModalOpen(false)}
+        selectedVehicle={selectedVehicleId ? (vehicles.find(v => v.id === selectedVehicleId) || null) : (vehicles[0] || null)}
+        orders={orders}
       />
 
       <SettingsModal

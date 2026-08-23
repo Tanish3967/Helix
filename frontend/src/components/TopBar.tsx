@@ -12,7 +12,9 @@ import {
   Activity,
   Radio,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Tablet,
+  Building2
 } from 'lucide-react';
 import { SimulationState } from '../types/fleet';
 import { ConnectionStatus } from '../services/websocket';
@@ -28,6 +30,9 @@ interface TopBarProps {
   onOpenSettings: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
+  selectedDepot?: string;
+  onSelectDepot?: (depotId: string) => void;
+  onOpenDriverModal?: () => void;
 }
 
 const NAV_TABS: { id: string; label: string; badge?: string }[] = [
@@ -60,7 +65,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenIncidents,
   onOpenSettings,
   soundEnabled,
-  onToggleSound
+  onToggleSound,
+  selectedDepot = 'ALL',
+  onSelectDepot,
+  onOpenDriverModal
 }) => {
   const conn = CONNECTION_META[connectionStatus];
   const simTime = state?.sim_time || '--:--:--';
@@ -120,6 +128,23 @@ export const TopBar: React.FC<TopBarProps> = ({
 
       <div className="w-px h-6 shrink-0 bg-slate-800 hidden lg:block" />
 
+      {/* Multi-Depot Selector */}
+      {onSelectDepot && (
+        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/60 border border-slate-800 text-xs font-mono">
+          <Building2 className="w-3.5 h-3.5 text-cyan-400" />
+          <select
+            value={selectedDepot}
+            onChange={(e) => onSelectDepot(e.target.value)}
+            className="bg-transparent text-slate-300 focus:outline-none cursor-pointer text-xs"
+          >
+            <option value="ALL" className="bg-slate-900 text-slate-300">All Depots (Global)</option>
+            <option value="DEPOT-01" className="bg-slate-900 text-slate-300">DEPOT-01 SF Central Hub</option>
+            <option value="DEPOT-02" className="bg-slate-900 text-slate-300">DEPOT-02 Oakland Port</option>
+            <option value="DEPOT-03" className="bg-slate-900 text-slate-300">DEPOT-03 San Jose Tech</option>
+          </select>
+        </div>
+      )}
+
       {/* Primary Navigation Tabs */}
       <nav className="hidden lg:flex items-center gap-1 shrink-0" aria-label="Primary">
         {NAV_TABS.map((tab) => {
@@ -146,7 +171,7 @@ export const TopBar: React.FC<TopBarProps> = ({
       </nav>
 
       {/* Center Metrics Pill Bar */}
-      <div className="hidden xl:flex items-center gap-3 px-3 py-1 rounded-xl bg-slate-950/60 border border-slate-800 text-xs font-mono">
+      <div className="hidden 2xl:flex items-center gap-3 px-3 py-1 rounded-xl bg-slate-950/60 border border-slate-800 text-xs font-mono">
         <div className="flex items-center gap-1.5">
           <span className="text-slate-500">FLEET:</span>
           <span className="font-bold text-white">{activeUnits}/{totalVehicles} Active</span>
@@ -164,7 +189,19 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       {/* Right Controls Cluster */}
-      <div className="flex items-center gap-2.5 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Driver In-Cab Companion Tablet Launcher */}
+        {onOpenDriverModal && (
+          <button
+            onClick={onOpenDriverModal}
+            className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-bold transition-all"
+            title="Open In-Cab Driver Tablet Companion"
+          >
+            <Tablet className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">IN-CAB</span>
+          </button>
+        )}
+
         {/* Command & Natural Language Palette Trigger */}
         <button
           onClick={onOpenCommand}
@@ -172,14 +209,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           title="Command Palette & AI Agent Assistant"
         >
           <Search className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs">Ask Agent Swarm…</span>
+          <span className="text-xs">Ask Swarm…</span>
           <kbd className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-400 border border-slate-700">
             <Command className="w-2.5 h-2.5" />K
           </kbd>
         </button>
 
         {/* Simulation Speed & Clock Pill */}
-        <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-slate-950/80 border border-slate-800">
+        <div className="flex items-center gap-1.5 h-8 px-2 rounded-lg bg-slate-950/80 border border-slate-800">
           <button
             onClick={handleTogglePause}
             className={`p-1 rounded transition-colors ${
@@ -218,7 +255,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Connection Status Badge */}
         <div
-          className="hidden sm:flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-slate-950/80 border border-slate-800"
+          className="hidden md:flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-slate-950/80 border border-slate-800"
           title={`Backend WebSocket: ${conn.label}`}
         >
           <span className={`w-2 h-2 rounded-full ${connectionStatus === 'open' ? 'bg-emerald-400 shadow-[0_0_8px_#10B981]' : 'bg-amber-400'}`} />
@@ -268,7 +305,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           title="Logged in as Fleet Commander"
         >
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="hidden md:inline">COMMANDER</span>
+          <span className="hidden lg:inline">COMMANDER</span>
         </div>
       </div>
     </header>

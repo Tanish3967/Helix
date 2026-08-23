@@ -93,3 +93,34 @@ async def test_commercial_routing_engine():
     assert "distance_km" in route
     assert route["distance_km"] > 0
     assert len(route["waypoints"]) > 5
+
+def test_depot_hierarchy_and_scoping():
+    """Tests enterprise multi-depot query."""
+    response = client.get("/api/enterprise/depots")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_depots"] >= 3
+    assert any(d["id"] == "DEPOT-01" for d in data["depots"])
+
+def test_driver_hos_duty_logging():
+    """Tests FMCSA Hours of Service duty status logging."""
+    payload = {
+        "driver_id": "DRV-104",
+        "status": "ON_DUTY",
+        "odometer": 12890.0
+    }
+    response = client.post("/api/enterprise/driver/hos", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["duty_status"] == "ON_DUTY"
+
+def test_driver_manifest_query():
+    """Tests in-cab manifest retrieval."""
+    response = client.get("/api/enterprise/driver/DRV-104/manifest")
+    assert response.status_code == 200
+    data = response.json()
+    assert "vehicle" in data
+    assert "assigned_orders" in data
+    assert "current_eta" in data
+

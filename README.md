@@ -197,7 +197,7 @@ Run the comprehensive test suite (Unit, API, Multi-Agent Swarm, Database Persist
 ```bash
 python -m pytest
 ```
-*Current test suite: **24 passed, 0 failed** across `test_agents.py`, `test_api.py`, `test_database.py`, `test_enterprise.py`, `test_production.py`, and `test_simulation.py`.*
+*Current test suite: **27 passed, 0 failed** across `test_agents.py`, `test_api.py`, `test_database.py`, `test_enterprise.py`, `test_production.py`, and `test_simulation.py`.*
 
 Build and type-check the React frontend:
 
@@ -214,8 +214,11 @@ FleetOps AI includes enterprise-grade modules for commercial logistics carriers:
 
 | Enterprise Module | Endpoint / Service | Description |
 | :--- | :--- | :--- |
+| **Multi-Depot Hierarchy** | `GET /api/enterprise/depots` | Manages regional depot allocations (`DEPOT-01 SF Central`, `DEPOT-02 Oakland Port`, `DEPOT-03 San Jose`). |
+| **Driver In-Cab Tablet & HOS** | `POST /api/enterprise/driver/hos` | FMCSA 49 CFR Part 395 Hours-of-Service duty status compliance (`DRIVING`, `ON_DUTY`, `OFF_DUTY`). |
+| **Driver Manifest & Detours** | `GET /api/enterprise/driver/{id}/manifest` | In-cab turn-by-turn waypoint guidance and interactive "Accept AI Detour" prompt. |
 | **IoT Telematics Ingestion** | `POST /api/enterprise/telematics/ingest` | Ingests live GPS, speed, and OBD-II trouble codes (`P0300`, `P0117`, etc.) with automated anomaly detection. |
-| **Driver e-POD Companion** | `POST /api/enterprise/driver/pod` | Ingests digital recipient signatures, delivery photos, and transition orders to `DELIVERED`. |
+| **Digital Proof of Delivery (e-POD)** | `POST /api/enterprise/driver/pod` | Ingests digital recipient signatures, delivery photos, and transitions orders to `DELIVERED`. |
 | **Predictive Digital Twin** | `GET /api/enterprise/analytics/predictive` | Analyzes battery degradation and vehicle odometer to trigger preventative depot maintenance. |
 | **ESG Carbon & EV Charging** | `GET /api/enterprise/analytics/esg` | Computes Fleet Scope 1 & 2 CO2 footprint and schedules off-peak depot EV charging. |
 | **ERP / TMS Webhooks** | `POST /api/enterprise/webhooks/order` | Ingests external orders from SAP, Shopify, or Salesforce and triggers automated dispatch. |

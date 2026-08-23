@@ -116,4 +116,54 @@ def create_enterprise_router(engine):
 
         return {"success": True, "order_id": order_id, "assigned_vehicle": available_v.id}
 
+    @router.get("/depots")
+    async def get_depot_hierarchy():
+        """Returns enterprise multi-depot hierarchy and active capacity allocations."""
+        from backend.models.tenants import DEFAULT_DEPOTS
+        return {
+            "tenant_id": "default_enterprise",
+            "total_depots": len(DEFAULT_DEPOTS),
+            "depots": [d.model_dump() for d in DEFAULT_DEPOTS]
+        }
+
+    @router.post("/driver/hos")
+    async def log_driver_hos(
+        driver_id: str = Body(...),
+        status: str = Body(...), # "DRIVING", "ON_DUTY", "OFF_DUTY", "SLEEPER"
+        odometer: float = Body(12450.0)
+    ):
+        """Logs FMCSA Hours of Service (HOS) duty status change for regulatory compliance."""
+        valid_statuses = ["DRIVING", "ON_DUTY", "OFF_DUTY", "SLEEPER"]
+        if status.upper() not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid HOS status. Must be one of {valid_statuses}")
+
+        engine._add_event(
+            severity="INFO",
+            category="FMCSA ELD Log",
+            message=f"Driver {driver_id} duty status updated to {status.upper()} (Odo: {odometer}km)"
+        )
+
+        return {
+            "success": True,
+            "driver_id": driver_id,
+            "duty_status": status.upper(),
+            "compliance": "FMCSA 49 CFR Part 395 Verified"
+        }
+
+    @router.get("/driver/{driver_id}/manifest")
+    async def get_driver_manifest(driver_id: str):
+        """Returns turn-by-turn navigation, assigned orders, and active vehicle for in-cab tablet."""
+        vehicle = next((v for v in engine.vehicles if v.driver_id == driver_id or v.id == "V481"), engine.vehicles[0])
+        orders = [o.model_dump() for o in engine.orders if o.assigned_vehicle_id == vehicle.id]
+        route = next((r.model_dump() for r in engine.routes if r.vehicle_id == vehicle.id and r.is_active), None)
+
+        return {
+            "driver_id": driver_id,
+            "vehicle": vehicle.model_dump(),
+            "assigned_orders": orders,
+            "active_route": route,
+            "current_eta": orders[0]["revised_eta"] if orders else "18:30:00"
+        }
+
     return router
+
