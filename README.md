@@ -112,21 +112,47 @@ Most AI portfolio projects are simple "chat with an LLM" wrappers. **FleetOps AI
 
 ---
 
-## 🛠️ Getting Started
+## 🛠️ Getting Started & Launch Modes
 
-### Method 1: Single-Click Script Launch (Windows)
+FleetOps AI provides three flexible launch modes tailored for development, local container testing, and full enterprise deployment:
+
+### Launch Modes Comparison
+
+| Mode | Command | Stack / Services | Ports & URLs | Best For |
+|---|---|---|---|---|
+| **[1] Local Dev Server** | `start.bat local` | Uvicorn (FastAPI) + Vite (React 18) + SQLite | UI: `http://localhost:3000`<br/>API: `http://localhost:8000`<br/>Docs: `http://localhost:8000/docs` | Hot-reloading & UI development |
+| **[2] Docker Container** | `start.bat docker` | Multi-stage Container (FastAPI + Bundled SPA) | App: `http://localhost:8000`<br/>Health: `http://localhost:8000/api/health`<br/>Metrics: `http://localhost:8000/api/metrics` | Single-container deployment |
+| **[3] Enterprise Prod Stack** | `start.bat prod` | App + PostgreSQL/PostGIS + Redis + Caddy | Gateway: `http://localhost`<br/>App: `http://localhost:8000`<br/>Postgres: `5432` \| Redis: `6379` | Scalable multi-worker deployment |
+
+---
+
+### Method 1: Single-Click Script Launcher (`start.bat`)
+
+Double-click or run [`start.bat`](file:///c:/Users/KIIT/Desktop/Helix/start.bat) from the terminal for an interactive launch menu:
+
 ```cmd
-# Interactive Menu (Local, Docker, or Production Stack):
 start.bat
+```
 
-# Or direct shortcuts:
+```
+================================================================
+  FleetOps AI - Autonomous Fleet Operations Platform
+================================================================
+
+Select launch mode:
+  [1] Local Dev Server (Python FastAPI + React Vite on :3000)
+  [2] Docker Container Stack (FastAPI + Bundled SPA on :8000)
+  [3] Enterprise Production Stack (Docker + PostgreSQL + Redis + Caddy)
+
+Enter choice [1-3] (Default: 1):
+```
+
+Or execute directly via arguments:
+```cmd
 start.bat docker   # Runs containerized stack (Port 8000)
 start.bat prod     # Runs PostgreSQL + Redis + Caddy Production stack
 start.bat local    # Runs standard FastAPI + Vite dev servers (:8000 & :3000)
 ```
-- **Dashboard UI**: `http://localhost:3000` (or `http://localhost:8000` in Docker)
-- **Backend API Docs**: `http://localhost:8000/docs`
-- **Prometheus Metrics**: `http://localhost:8000/api/metrics`
 
 ---
 
@@ -134,14 +160,12 @@ start.bat local    # Runs standard FastAPI + Vite dev servers (:8000 & :3000)
 
 #### 1. Backend Setup
 ```bash
-# From workspace root
 pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 #### 2. Frontend Setup
 ```bash
-# In a separate terminal
 cd frontend
 npm install
 npm run dev
@@ -151,15 +175,18 @@ npm run dev
 
 ### Method 3: Containerized Execution (Docker)
 
-#### Local Docker Stack
+#### Local Containerized Stack
 ```bash
 docker compose up --build
 ```
 
-#### Full Production Stack (PostgreSQL + PostGIS, Redis, Caddy SSL Gateway)
+#### Enterprise Production Stack (PostgreSQL + PostGIS, Redis, Caddy Reverse Proxy)
 ```bash
 docker compose -f docker-compose.prod.yml up --build -d
 ```
+- **Automatic Healthchecks**: Containers monitor database readiness (`pg_isready`), Redis ping responses, and `/api/health`.
+- **Persistent Storage Volumes**: Preserves PostgreSQL database data (`pgdata`) and Redis snapshots (`redisdata`).
+- **Reverse Proxy Gateway**: Caddy automates SSL/TLS termination and proxies requests to the backend cluster.
 
 ---
 
