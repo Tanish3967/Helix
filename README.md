@@ -114,11 +114,17 @@ Most AI portfolio projects are simple "chat with an LLM" wrappers. **FleetOps AI
 
 ## 🛠️ Getting Started
 
-### Method 1: Single-Click Local Run (Windows)
+### Method 1: Single-Click Script Launch (Windows)
 ```cmd
+# Interactive Menu (Local, Docker, or Production Stack):
 start.bat
+
+# Or direct shortcuts:
+start.bat docker   # Runs containerized stack (Port 8000)
+start.bat prod     # Runs PostgreSQL + Redis + Caddy Production stack
+start.bat local    # Runs standard FastAPI + Vite dev servers (:8000 & :3000)
 ```
-- **Dashboard**: `http://localhost:3000`
+- **Dashboard UI**: `http://localhost:3000` (or `http://localhost:8000` in Docker)
 - **Backend API Docs**: `http://localhost:8000/docs`
 - **Prometheus Metrics**: `http://localhost:8000/api/metrics`
 
