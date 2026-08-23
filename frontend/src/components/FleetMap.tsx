@@ -1308,19 +1308,95 @@ export const FleetMap: React.FC<FleetMapProps> = ({
         </div>
       </div>
 
-      {/* Selected-vehicle ETA readout (below the style tabs, only when a vehicle is picked) */}
-      {selectedVehicle && etaInfo && (
-        <div className="absolute top-14 left-3 z-10">
-          <div className="conditions-chip">
-            <span className="flex items-center gap-1.5">
-              <Navigation className="w-3.5 h-3.5" style={{ color: 'var(--ion)' }} />
-              <span className="readout font-bold" style={{ color: 'var(--ink)' }}>{selectedVehicle.id}</span>
-            </span>
-            <span className="cond-sep" />
-            <span style={{ color: 'var(--ink-faint)' }}>ETA <span className="font-bold" style={{ color: 'var(--ink)' }}>{formatEta(etaInfo.minutes)}</span></span>
-            <span className="cond-sep" />
-            <span style={{ color: 'var(--ink-faint)' }}>{etaInfo.remainingKm.toFixed(1)} km · {etaInfo.progress.toFixed(0)}%</span>
+      {/* Selected Vehicle Telemetry HUD Inspector (Top Left) */}
+      {selectedVehicle && (
+        <div className="absolute top-14 left-3 z-20 w-72 rounded-xl bg-slate-900/95 border border-slate-700/80 shadow-2xl p-3 backdrop-blur-md space-y-2.5 transition-all animate-fadeIn">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
+                <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-white font-mono">{selectedVehicle.id}</span>
+                  <span
+                    className={`text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded ${
+                      selectedVehicle.status === 'AT_RISK'
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                        : selectedVehicle.status === 'REASSIGNED'
+                        ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    }`}
+                  >
+                    {selectedVehicle.status}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 truncate max-w-[140px]">{selectedVehicle.model}</div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onSelectVehicle(null)}
+              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-xs font-bold"
+              title="Deselect vehicle"
+            >
+              ✕
+            </button>
           </div>
+
+          {/* Key Metrics Grid */}
+          <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+            <div className="p-1.5 rounded-lg bg-slate-950/70 border border-slate-800/80">
+              <div className="text-slate-500 uppercase text-[8.5px]">Velocity</div>
+              <div className="text-white font-bold text-xs">{selectedVehicle.speed_kmh.toFixed(1)} km/h</div>
+            </div>
+            <div className="p-1.5 rounded-lg bg-slate-950/70 border border-slate-800/80">
+              <div className="text-slate-500 uppercase text-[8.5px]">Battery / Fuel</div>
+              <div className="text-emerald-400 font-bold text-xs">{selectedVehicle.battery_fuel_percent.toFixed(0)}%</div>
+            </div>
+            <div className="p-1.5 rounded-lg bg-slate-950/70 border border-slate-800/80">
+              <div className="text-slate-500 uppercase text-[8.5px]">Cargo Load</div>
+              <div className="text-slate-200 font-bold text-xs">{selectedVehicle.current_load_kg} / {selectedVehicle.max_capacity_kg} kg</div>
+            </div>
+            <div className="p-1.5 rounded-lg bg-slate-950/70 border border-slate-800/80">
+              <div className="text-slate-500 uppercase text-[8.5px]">Active Orders</div>
+              <div className="text-cyan-300 font-bold text-xs">{selectedVehicle.assigned_order_ids?.length || 0} parcels</div>
+            </div>
+          </div>
+
+          {/* ETA / Route Progress if active */}
+          {etaInfo && (
+            <div className="p-2 rounded-lg bg-cyan-950/30 border border-cyan-800/40 text-[10.5px] space-y-1">
+              <div className="flex items-center justify-between text-cyan-300 font-mono">
+                <span>ETA: <strong>{formatEta(etaInfo.minutes)}</strong></span>
+                <span>{etaInfo.remainingKm.toFixed(1)} km left</span>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, etaInfo.progress))}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Quick Focus Button */}
+          <button
+            onClick={() => {
+              if (selectedVehicle?.location && mapRef.current) {
+                mapRef.current.flyTo({
+                  center: [selectedVehicle.location.lng, selectedVehicle.location.lat],
+                  zoom: 15,
+                  duration: 1000
+                });
+              }
+            }}
+            className="w-full py-1.5 px-2.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <LocateFixed className="w-3 h-3" />
+            <span>Focus Unit on Radar</span>
+          </button>
         </div>
       )}
 
