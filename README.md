@@ -159,11 +159,12 @@ docker compose -f docker-compose.prod.yml up --build -d
 
 ## 🧪 Testing & Verification
 
-Run the comprehensive test suite (Unit, API, Multi-Agent Swarm, and Production Readiness):
+Run the comprehensive test suite (Unit, API, Multi-Agent Swarm, Database Persistence, and Production Readiness):
 
 ```bash
 python -m pytest
 ```
+*Current test suite: **18 passed, 0 failed** across `test_agents.py`, `test_api.py`, `test_database.py`, `test_production.py`, and `test_simulation.py`.*
 
 Build and type-check the React frontend:
 
