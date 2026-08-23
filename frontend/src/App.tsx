@@ -16,9 +16,10 @@ import { SettingsModal } from './components/SettingsModal';
 import { IncidentsModal } from './components/IncidentsModal';
 import { DeliveriesModal } from './components/DeliveriesModal';
 import { DriverCompanionModal } from './components/DriverCompanionModal';
+import { CustomerTrackingModal } from './components/CustomerTrackingModal';
 import { CommandBar } from './components/CommandBar';
 import { DynamicLoadingScreen } from './components/DynamicLoadingScreen';
-import { SimulationState, Vehicle, Route } from './types/fleet';
+import { SimulationState, Vehicle, Route, Order } from './types/fleet';
 import { fetchSimulationState } from './services/api';
 import { fleetWS, ConnectionStatus } from './services/websocket';
 
@@ -39,6 +40,8 @@ export const App: React.FC = () => {
   const [isIncidentsOpen, setIsIncidentsOpen] = useState<boolean>(false);
   const [isDeliveriesOpen, setIsDeliveriesOpen] = useState<boolean>(false);
   const [isDriverModalOpen, setIsDriverModalOpen] = useState<boolean>(false);
+  const [isTrackingOpen, setIsTrackingOpen] = useState<boolean>(false);
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const [isCommandOpen, setIsCommandOpen] = useState<boolean>(false);
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
@@ -380,6 +383,10 @@ export const App: React.FC = () => {
               <DeliveriesTable 
                 orders={orders} 
                 onSelectVehicle={setSelectedVehicleId}
+                onTrackOrder={(order) => {
+                  setTrackingOrder(order);
+                  setIsTrackingOpen(true);
+                }}
               />
             </div>
           </div>
@@ -467,6 +474,13 @@ export const App: React.FC = () => {
         isOpen={isDriverModalOpen}
         onClose={() => setIsDriverModalOpen(false)}
         selectedVehicle={selectedVehicleId ? (vehicles.find(v => v.id === selectedVehicleId) || null) : (vehicles[0] || null)}
+        orders={orders}
+      />
+
+      <CustomerTrackingModal
+        isOpen={isTrackingOpen}
+        onClose={() => setIsTrackingOpen(false)}
+        initialOrder={trackingOrder}
         orders={orders}
       />
 

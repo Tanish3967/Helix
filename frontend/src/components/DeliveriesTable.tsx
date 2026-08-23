@@ -5,6 +5,7 @@ import { Order, OrderStatus } from '../types/fleet';
 interface DeliveriesTableProps {
   orders: Order[];
   onSelectVehicle?: (vId: string) => void;
+  onTrackOrder?: (order: Order) => void;
 }
 
 // Map each order status onto a design-system token + display label.
@@ -24,7 +25,7 @@ function statusMeta(status: OrderStatus, atRisk: boolean): { color: string; labe
   }
 }
 
-export const DeliveriesTable: React.FC<DeliveriesTableProps> = ({ orders, onSelectVehicle }) => {
+export const DeliveriesTable: React.FC<DeliveriesTableProps> = ({ orders, onSelectVehicle, onTrackOrder }) => {
   const [tab, setTab] = useState<'affected' | 'all'>('affected');
 
   const affectedList = orders.filter(
@@ -128,17 +129,31 @@ export const DeliveriesTable: React.FC<DeliveriesTableProps> = ({ orders, onSele
                       )}
                     </td>
                     <td className="py-2.5 px-3 text-right pr-4">
-                      <span
-                        className="text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
-                        style={{
-                          color: meta.color,
-                          background: `color-mix(in srgb, ${meta.color} 15%, transparent)`,
-                          border: `1px solid color-mix(in srgb, ${meta.color} 32%, transparent)`,
-                          fontFamily: 'var(--font-mono)'
-                        }}
-                      >
-                        {meta.label}
-                      </span>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span
+                          className="text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+                          style={{
+                            color: meta.color,
+                            background: `color-mix(in srgb, ${meta.color} 15%, transparent)`,
+                            border: `1px solid color-mix(in srgb, ${meta.color} 32%, transparent)`,
+                            fontFamily: 'var(--font-mono)'
+                          }}
+                        >
+                          {meta.label}
+                        </span>
+                        {onTrackOrder && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTrackOrder(order);
+                            }}
+                            className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-400 border border-slate-700 transition-colors"
+                            title="Open Customer Live Tracking Link"
+                          >
+                            Track
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

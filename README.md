@@ -197,7 +197,7 @@ Run the comprehensive test suite (Unit, API, Multi-Agent Swarm, Database Persist
 ```bash
 python -m pytest
 ```
-*Current test suite: **27 passed, 0 failed** across `test_agents.py`, `test_api.py`, `test_database.py`, `test_enterprise.py`, `test_production.py`, and `test_simulation.py`.*
+*Current test suite: **28 passed, 0 failed** across `test_agents.py`, `test_api.py`, `test_database.py`, `test_enterprise.py`, `test_production.py`, and `test_simulation.py`.*
 
 Build and type-check the React frontend:
 
@@ -214,6 +214,7 @@ FleetOps AI includes enterprise-grade modules for commercial logistics carriers:
 
 | Enterprise Module | Endpoint / Service | Description |
 | :--- | :--- | :--- |
+| **Public Customer Live Tracking** | `GET /api/enterprise/tracking/{order_id}` | White-labeled shipment tracking portal with courier ETA and digital proof-of-delivery. |
 | **Multi-Depot Hierarchy** | `GET /api/enterprise/depots` | Manages regional depot allocations (`DEPOT-01 SF Central`, `DEPOT-02 Oakland Port`, `DEPOT-03 San Jose`). |
 | **Driver In-Cab Tablet & HOS** | `POST /api/enterprise/driver/hos` | FMCSA 49 CFR Part 395 Hours-of-Service duty status compliance (`DRIVING`, `ON_DUTY`, `OFF_DUTY`). |
 | **Driver Manifest & Detours** | `GET /api/enterprise/driver/{id}/manifest` | In-cab turn-by-turn waypoint guidance and interactive "Accept AI Detour" prompt. |

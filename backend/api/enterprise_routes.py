@@ -165,5 +165,25 @@ def create_enterprise_router(engine):
             "current_eta": orders[0]["revised_eta"] if orders else "18:30:00"
         }
 
+    @router.get("/tracking/{order_id}")
+    async def get_public_order_tracking(order_id: str):
+        """Public endpoint for customer-facing live order tracking portal."""
+        clean_id = order_id.replace("#", "")
+        order = next((o for o in engine.orders if o.id.replace("#", "") == clean_id), None)
+        if not order:
+            raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
+
+        vehicle = next((v for v in engine.vehicles if v.id == order.assigned_vehicle_id), None)
+        return {
+            "order_id": order.id,
+            "customer_name": order.customer_name,
+            "status": order.status.value,
+            "eta": order.revised_eta,
+            "destination": order.destination.model_dump(),
+            "vehicle_location": vehicle.location.model_dump() if vehicle else None,
+            "assigned_vehicle": vehicle.id if vehicle else None,
+            "proof_of_delivery": order.proof_of_delivery
+        }
+
     return router
 

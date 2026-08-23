@@ -124,3 +124,17 @@ def test_driver_manifest_query():
     assert "assigned_orders" in data
     assert "current_eta" in data
 
+def test_public_order_tracking_endpoint():
+    """Tests public customer-facing tracking endpoint."""
+    state_res = client.get("/api/fleet/state")
+    order_id = state_res.json()["orders"][0]["id"]
+    
+    response = client.get(f"/api/enterprise/tracking/{order_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["order_id"] == order_id
+    assert "customer_name" in data
+    assert "eta" in data
+    assert "destination" in data
+
+
