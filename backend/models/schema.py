@@ -95,6 +95,9 @@ class Order(BaseModel):
     revised_eta: str
     delay_minutes: float = 0.0
     assigned_vehicle_id: Optional[str] = None
+    tenant_id: Optional[str] = "default_enterprise"
+    depot_id: Optional[str] = "DEPOT-01"
+    proof_of_delivery: Optional[Dict[str, Any]] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 class RouteWaypoint(BaseModel):
@@ -132,6 +135,29 @@ class Vehicle(BaseModel):
     assigned_order_ids: List[str] = Field(default_factory=list)
     fault_details: Optional[str] = None
     telemetry_health: str = "Optimal"
+    tenant_id: Optional[str] = "default_enterprise"
+    depot_id: Optional[str] = "DEPOT-01"
+    odometer_km: float = 12450.0
+    dtc_faults: List[str] = Field(default_factory=list)
+    carbon_kg_today: float = 18.4
+
+class TelematicsPacket(BaseModel):
+    vehicle_id: str
+    lat: float
+    lng: float
+    speed_kmh: Optional[float] = None
+    battery_fuel_percent: Optional[float] = None
+    dtc_codes: List[str] = Field(default_factory=list)
+    driver_id: Optional[str] = None
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+class ProofOfDelivery(BaseModel):
+    order_id: str
+    recipient_name: str
+    signature_data: Optional[str] = None
+    photo_url: Optional[str] = None
+    delivered_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    notes: Optional[str] = None
 
 class Incident(BaseModel):
     id: str

@@ -197,7 +197,7 @@ Run the comprehensive test suite (Unit, API, Multi-Agent Swarm, Database Persist
 ```bash
 python -m pytest
 ```
-*Current test suite: **18 passed, 0 failed** across `test_agents.py`, `test_api.py`, `test_database.py`, `test_production.py`, and `test_simulation.py`.*
+*Current test suite: **24 passed, 0 failed** across `test_agents.py`, `test_api.py`, `test_database.py`, `test_enterprise.py`, `test_production.py`, and `test_simulation.py`.*
 
 Build and type-check the React frontend:
 
@@ -205,6 +205,21 @@ Build and type-check the React frontend:
 cd frontend
 npm run build
 ```
+
+---
+
+## 🏢 Enterprise Operations & Telematics (TOS)
+
+FleetOps AI includes enterprise-grade modules for commercial logistics carriers:
+
+| Enterprise Module | Endpoint / Service | Description |
+| :--- | :--- | :--- |
+| **IoT Telematics Ingestion** | `POST /api/enterprise/telematics/ingest` | Ingests live GPS, speed, and OBD-II trouble codes (`P0300`, `P0117`, etc.) with automated anomaly detection. |
+| **Driver e-POD Companion** | `POST /api/enterprise/driver/pod` | Ingests digital recipient signatures, delivery photos, and transition orders to `DELIVERED`. |
+| **Predictive Digital Twin** | `GET /api/enterprise/analytics/predictive` | Analyzes battery degradation and vehicle odometer to trigger preventative depot maintenance. |
+| **ESG Carbon & EV Charging** | `GET /api/enterprise/analytics/esg` | Computes Fleet Scope 1 & 2 CO2 footprint and schedules off-peak depot EV charging. |
+| **ERP / TMS Webhooks** | `POST /api/enterprise/webhooks/order` | Ingests external orders from SAP, Shopify, or Salesforce and triggers automated dispatch. |
+| **Commercial Road Routing** | `backend/routing/osrm_adapter.py` | Turn-by-turn road network routing with OSRM and dynamic avoidance splines. |
 
 ---
 
@@ -231,6 +246,7 @@ npm run build
 ## 📄 Resume / Portfolio Highlights
 
 - **Multi-Agent Swarm Architecture:** Designed and implemented an event-driven multi-agent orchestration architecture in Python/FastAPI using specialized agent nodes equipped with deterministic spatial tools to autonomously resolve real-time logistics failures.
+- **Enterprise Telematics & Ingestion Gateway:** Built high-throughput IoT telematics ingestion supporting OBD-II Diagnostic Trouble Codes, driver digital proof of delivery (e-POD), and ERP order webhook integration.
 - **Real-Time Web & Spatial Visualization:** Built a high-frequency WebSocket state synchronization pipeline and interactive MapLibre GL JS operations console rendering 100 simulated vehicles, dynamic polylines, and sub-second anomaly mitigation traces.
 - **Production Hardening & CI/CD:** Engineered Docker containerization, PostgreSQL/PostGIS connection pooling, Prometheus metrics collection, JWT role-based access control, and automated GitHub Actions verification workflows.
 

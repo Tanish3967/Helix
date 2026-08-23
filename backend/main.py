@@ -12,6 +12,7 @@ from backend.simulation.disruptions import DisruptionManager
 from backend.simulation.scenarios import ScenarioManager
 from backend.api.routes import create_api_router
 from backend.api.auth import router as auth_router
+from backend.api.enterprise_routes import create_enterprise_router
 from backend.telemetry.metrics import get_prometheus_metrics_response, FLEET_WS_CONNECTIONS, FLEET_HTTP_REQUESTS
 from backend.telemetry.logger import log
 
@@ -66,9 +67,10 @@ async def security_and_metrics_middleware(request: Request, call_next):
         
     return response
 
-# Attach Authentication & Core Fleet Operations API Routers
+# Attach Authentication, Core Fleet Operations & Enterprise Telematics Routers
 app.include_router(auth_router)
 app.include_router(create_api_router(engine, disruption_mgr, scenario_mgr))
+app.include_router(create_enterprise_router(engine))
 
 # Prometheus Metrics Scraping Endpoint
 @app.get("/api/metrics", tags=["Observability"])
