@@ -2,7 +2,7 @@ import { SimulationState, AgentStep, Incident, LiveEvent, MissionScore, Route, V
 
 export type ConnectionStatus = 'connecting' | 'open' | 'closed';
 
-type WSMessageHandler = (data: {
+export type WSMessageHandler = (data: {
   type: string;
   state?: SimulationState;
   incident?: Incident;
@@ -142,6 +142,17 @@ class FleetWebSocket {
     };
   }
 
+  disconnect() {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.metricsTimer) clearInterval(this.metricsTimer);
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.status = 'closed';
+    this.statusListeners.forEach((cb) => cb('closed'));
+  }
+
   /** Subscribe to connection-status changes; fires immediately with the current status. */
   onStatus(listener: StatusHandler) {
     this.statusListeners.add(listener);
@@ -193,3 +204,12 @@ class FleetWebSocket {
 }
 
 export const fleetWS = new FleetWebSocket();
+
+export function connectFleetWebSocket(handler: WSMessageHandler) {
+  fleetWS.connect();
+  return fleetWS.subscribe(handler);
+}
+
+export function disconnectFleetWebSocket() {
+  fleetWS.disconnect();
+}

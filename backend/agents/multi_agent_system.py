@@ -17,6 +17,12 @@ class MultiAgentOrchestrator:
         self.event_callback = event_callback
         self.execution_history: List[AgentExecutionTrace] = []
 
+    def _get_inter_agent_delay(self) -> float:
+        """Dynamically computes ultra-low inter-agent communication latency scaled to simulation speed."""
+        speed = float(self.world.get("speed_multiplier", 1.0))
+        # High-performance sub-second inter-agent latency (0.15s at 1x down to 0.03s at 5x)
+        return max(0.02, round(0.15 / max(1.0, speed), 3))
+
     async def _emit_step(self, incident_id: str, agent_name: AgentName, state: AgentState, summary: str, detail: str, tool_calls: List[Dict[str, Any]]) -> AgentStep:
         t_calls = [
             AgentToolCall(
@@ -37,10 +43,10 @@ class MultiAgentOrchestrator:
             timestamp=datetime.utcnow().isoformat()
         )
         
-        # Persist to database
-        save_agent_step(incident_id, step.model_dump())
+        # Non-blocking asynchronous database persistence
+        asyncio.create_task(asyncio.to_thread(save_agent_step, incident_id, step.model_dump()))
         
-        # Emit to real-time WebSocket
+        # Real-time WebSocket state synchronization
         if self.event_callback:
             vehicles = self.world.get("vehicles", [])
             routes = self.world.get("routes", [])
@@ -60,9 +66,10 @@ class MultiAgentOrchestrator:
         return step
 
     async def resolve_incident(self, incident: Incident) -> AgentExecutionTrace:
-        """Executes the full multi-agent reasoning chain for any incident."""
+        """Executes the high-throughput, low-latency multi-agent reasoning chain for any incident."""
         trace = AgentExecutionTrace(incident_id=incident.id, steps=[], started_at=datetime.utcnow().isoformat())
-        
+        delay = self._get_inter_agent_delay()
+
         # 1. ORCHESTRATOR AGENT: Detection & Triage
         step1 = await self._emit_step(
             incident.id,
@@ -73,7 +80,7 @@ class MultiAgentOrchestrator:
             tool_calls=[]
         )
         trace.steps.append(step1)
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(delay)
 
         # Identify affected orders and vehicle
         primary_vehicle_id = incident.affected_vehicle_ids[0] if incident.affected_vehicle_ids else "V481"
@@ -89,47 +96,53 @@ class MultiAgentOrchestrator:
         total_weight_kg = sum(o.weight_kg for o in affected_orders) if affected_orders else 140.0
         v_loc = target_vehicle.location if target_vehicle else Location(lat=37.7790, lng=-122.4050)
 
-        # 2. TRAFFIC AGENT: Zone Congestion Evaluation
-        t_start = time.time()
-        traffic_info = self.tools.get_traffic(zone_id=v_loc.zone_id)
-        traffic_delay = self.tools.estimate_delay(distance_km=14.5, traffic_multiplier=traffic_info.get("multiplier", 1.0))
-        traffic_ms = round((time.time() - t_start) * 1000, 1)
+        # 2 & 3. CONCURRENT EXECUTION: Traffic & Weather Agents
+        async def evaluate_traffic():
+            t_start = time.time()
+            traffic_info = self.tools.get_traffic(zone_id=v_loc.zone_id)
+            traffic_delay = self.tools.estimate_delay(distance_km=14.5, traffic_multiplier=traffic_info.get("multiplier", 1.0))
+            traffic_ms = round((time.time() - t_start) * 1000, 1)
 
-        step2 = await self._emit_step(
-            incident.id,
-            AgentName.TRAFFIC,
-            AgentState.RUNNING,
-            summary=f"Traffic Assessment: {traffic_info['name']} ({traffic_info['condition']})",
-            detail=f"Queried traffic grid. Zone condition is '{traffic_info['condition']}' with multiplier {traffic_info.get('multiplier', 1.0)}x. Calculated estimated corridor delay: +{traffic_delay['added_delay_minutes']} min.",
-            tool_calls=[
-                {"name": "get_traffic", "args": {"zone_id": v_loc.zone_id}, "result": traffic_info, "time_ms": traffic_ms},
-                {"name": "estimate_delay", "args": {"distance_km": 14.5, "traffic_multiplier": traffic_info.get("multiplier", 1.0)}, "result": traffic_delay, "time_ms": 4.0}
-            ]
+            return await self._emit_step(
+                incident.id,
+                AgentName.TRAFFIC,
+                AgentState.RUNNING,
+                summary=f"Traffic Assessment: {traffic_info['name']} ({traffic_info['condition']})",
+                detail=f"Queried traffic grid. Zone condition is '{traffic_info['condition']}' with multiplier {traffic_info.get('multiplier', 1.0)}x. Calculated estimated corridor delay: +{traffic_delay['added_delay_minutes']} min.",
+                tool_calls=[
+                    {"name": "get_traffic", "args": {"zone_id": v_loc.zone_id}, "result": traffic_info, "time_ms": traffic_ms},
+                    {"name": "estimate_delay", "args": {"distance_km": 14.5, "traffic_multiplier": traffic_info.get("multiplier", 1.0)}, "result": traffic_delay, "time_ms": 4.0}
+                ]
+            ), traffic_info
+
+        async def evaluate_weather():
+            t_start = time.time()
+            weather_info = self.tools.get_weather()
+            weather_risk = self.tools.get_weather_risk()
+            weather_delay = self.tools.estimate_weather_delay(distance_km=14.5, weather_multiplier=weather_info.get("weather_multiplier", 1.0))
+            weather_ms = round((time.time() - t_start) * 1000, 1)
+
+            return await self._emit_step(
+                incident.id,
+                AgentName.WEATHER,
+                AgentState.RUNNING,
+                summary=f"Weather Analysis: {weather_info['condition']} ({weather_info['temperature_c']}°C)",
+                detail=f"Environmental safety assessment: {weather_info['safety_risk_level']}. Weather multiplier is {weather_info.get('weather_multiplier', 1.0)}x. Additional safety delay buffer: +{weather_delay['safety_delay_minutes']} min.",
+                tool_calls=[
+                    {"name": "get_weather", "args": {}, "result": weather_info, "time_ms": weather_ms},
+                    {"name": "get_weather_risk", "args": {}, "result": weather_risk, "time_ms": 3.0},
+                    {"name": "estimate_weather_delay", "args": {"distance_km": 14.5, "weather_multiplier": weather_info.get("weather_multiplier", 1.0)}, "result": weather_delay, "time_ms": 3.0}
+                ]
+            ), weather_info
+
+        # Run both agents concurrently in parallel
+        (step2, traffic_info), (step3, weather_info) = await asyncio.gather(
+            evaluate_traffic(),
+            evaluate_weather()
         )
         trace.steps.append(step2)
-        await asyncio.sleep(0.8)
-
-        # 3. WEATHER AGENT: Environmental Risk Analysis
-        t_start = time.time()
-        weather_info = self.tools.get_weather()
-        weather_risk = self.tools.get_weather_risk()
-        weather_delay = self.tools.estimate_weather_delay(distance_km=14.5, weather_multiplier=weather_info.get("weather_multiplier", 1.0))
-        weather_ms = round((time.time() - t_start) * 1000, 1)
-
-        step3 = await self._emit_step(
-            incident.id,
-            AgentName.WEATHER,
-            AgentState.RUNNING,
-            summary=f"Weather Analysis: {weather_info['condition']} ({weather_info['temperature_c']}°C)",
-            detail=f"Environmental safety assessment: {weather_info['safety_risk_level']}. Weather multiplier is {weather_info.get('weather_multiplier', 1.0)}x. Additional safety delay buffer: +{weather_delay['safety_delay_minutes']} min.",
-            tool_calls=[
-                {"name": "get_weather", "args": {}, "result": weather_info, "time_ms": weather_ms},
-                {"name": "get_weather_risk", "args": {}, "result": weather_risk, "time_ms": 3.0},
-                {"name": "estimate_weather_delay", "args": {"distance_km": 14.5, "weather_multiplier": weather_info.get("weather_multiplier", 1.0)}, "result": weather_delay, "time_ms": 3.0}
-            ]
-        )
         trace.steps.append(step3)
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(delay)
 
         # 4. DISPATCH AGENT: Multi-Candidate Ranking & Capacity Validation
         t_start = time.time()
@@ -175,7 +188,7 @@ class MultiAgentOrchestrator:
             ]
         )
         trace.steps.append(step4)
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(delay)
 
         # 5. ROUTING AGENT: Recalculate Trajectory & Dynamic ETAs
         t_start = time.time()
@@ -246,7 +259,7 @@ class MultiAgentOrchestrator:
             ]
         )
         trace.steps.append(step5)
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(delay)
 
         # 6. CUSTOMER AGENT: Proactive SLA Notifications & ETA Updates
         t_start = time.time()
@@ -284,7 +297,7 @@ class MultiAgentOrchestrator:
             ]
         )
         trace.steps.append(step6)
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(delay * 0.5)
 
         # 7. FINAL ORCHESTRATOR RESOLUTION
         final_summary = (

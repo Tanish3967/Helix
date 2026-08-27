@@ -27,12 +27,34 @@ goto launch_local
 
 :launch_docker
 echo.
+echo [Docker] Checking Docker daemon status...
+docker info >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo [ERROR] Docker daemon is not currently running or reachable!
+    echo         Please start Docker Desktop on your system.
+    echo.
+    set /p "FALLBACK=Would you like to fall back to Local Dev Server (Option 1)? [Y/N] (Default: Y): "
+    if /i "!FALLBACK!"=="N" goto end
+    goto launch_local
+)
 echo [Docker] Launching Local Containerized Stack...
 docker compose up --build
 goto end
 
 :launch_prod
 echo.
+echo [Docker Prod] Checking Docker daemon status...
+docker info >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo [ERROR] Docker daemon is not currently running or reachable!
+    echo         Please start Docker Desktop on your system.
+    echo.
+    set /p "FALLBACK=Would you like to fall back to Local Dev Server (Option 1)? [Y/N] (Default: Y): "
+    if /i "!FALLBACK!"=="N" goto end
+    goto launch_local
+)
 echo [Docker Prod] Launching Full Production Stack with PostgreSQL, Redis, and Caddy...
 docker compose -f docker-compose.prod.yml up --build -d
 echo.

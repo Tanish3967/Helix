@@ -14,6 +14,16 @@
   --border-subtle: rgba(45, 58, 86, 0.7);
   --border-glow: rgba(59, 130, 246, 0.4);
   
+  /* Stitch Tactical Cybernetic Palette */
+  --stitch-obsidian: #05070A;
+  --stitch-surface: #0D1515;
+  --stitch-surface-container: #192122;
+  --stitch-cyan: #00F0FF;
+  --stitch-violet: #8B5CF6;
+  --stitch-emerald: #10B981;
+  --stitch-amber: #F59E0B;
+  --stitch-rose: #EF4444;
+  
   --color-emerald: #10B981;
   --color-cyan: #06B6D4;
   --color-amber: #F59E0B;
@@ -97,6 +107,58 @@ html, body {
   backdrop-filter: blur(16px);
   border: 1px solid rgba(239, 68, 68, 0.55);
   box-shadow: 0 0 28px rgba(239, 68, 68, 0.25);
+}
+
+/* ===================================================
+   Stitch Cybernetic Command Modules & Ignition Effects
+   =================================================== */
+
+.tactical-module {
+  background: rgba(13, 21, 21, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tactical-module:hover {
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.12);
+}
+
+.id-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--stitch-cyan);
+  background: rgba(0, 240, 255, 0.1);
+  padding: 1.5px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+.ignite-cyan {
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+}
+
+.ignite-emerald {
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+}
+
+.ignite-violet {
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.35);
+}
+
+.ignite-amber {
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.35);
+}
+
+.ignite-rose {
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.4);
 }
 
 /* Radar & Marker Animations */
@@ -789,4 +851,63 @@ html, body {
   .status-dot--crit,
   .zone-label-severe .zone-dot,
   .marker-pill-at-risk { animation: none !important; }
+}
+
+/* ===================================================
+   Advanced Map Extensions: Draggable Waypoints & Hazards
+   =================================================== */
+
+.waypoint-drag-pin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #06B6D4;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.8), 0 2px 6px rgba(0, 0, 0, 0.6);
+  cursor: grab;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.waypoint-drag-pin:hover {
+  transform: scale(1.35);
+  background: #22D3EE;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 1);
+  cursor: grabbing;
+}
+
+.waypoint-drag-pin-origin {
+  background: #10B981;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.9);
+}
+
+.waypoint-drag-pin-dest {
+  background: #D946EF;
+  box-shadow: 0 0 14px rgba(217, 70, 239, 0.9);
+}
+
+.hazard-vertex-handle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #EF4444;
+  border: 2px solid #FFF;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.9);
+  cursor: pointer;
+  animation: glow-pulse 1.5s infinite;
+  z-index: 40;
+}
+
+.hazard-vertex-handle:hover {
+  transform: scale(1.4);
+}
+
+.ai-delta-badge {
+  background: rgba(14, 19, 31, 0.92);
+  border: 1px solid rgba(217, 70, 239, 0.45);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(217, 70, 239, 0.2);
+  backdrop-filter: blur(16px);
 }

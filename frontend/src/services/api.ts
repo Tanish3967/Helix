@@ -45,6 +45,8 @@ export async function injectDisruption(payload: {
   delay_minutes?: number;
   level?: number;
   auto_resolve?: boolean;
+  polygon_coords?: number[][];
+  hazard_name?: string;
 }): Promise<{ success: boolean; incident?: Incident }> {
   const res = await fetch(`${API_BASE}/simulation/disrupt`, {
     method: 'POST',
@@ -132,6 +134,7 @@ export async function modifyVehicleRoute(vehicleId: string, payload: {
   destination_lng?: number;
   destination_name?: string;
   zone_id?: string;
+  waypoints?: Array<{ lat: number; lng: number; segment_name?: string }>;
 }): Promise<any> {
   const res = await fetch(`${API_BASE}/fleet/vehicles/${vehicleId}/route`, {
     method: 'POST',

@@ -1,387 +1,404 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { SimulationState, Vehicle, Route, Order, Incident, LiveEvent, MissionScore, AgentStep } from './types/fleet';
+import { fetchSimulationState } from './services/api';
+import { connectFleetWebSocket, disconnectFleetWebSocket, fleetWS, ConnectionStatus, WSMessageHandler } from './services/websocket';
 import { TopBar } from './components/TopBar';
 import { LeftSidebar } from './components/LeftSidebar';
 import { FleetMap } from './components/FleetMap';
 import { LiveEventsPanel } from './components/LiveEventsPanel';
 import { DeliveriesTable } from './components/DeliveriesTable';
 import { ActiveIncidentCard } from './components/ActiveIncidentCard';
-import { AIRecommendationCard } from './components/AIRecommendationCard';
 import { AgentActivityFeed } from './components/AgentActivityFeed';
 import { MissionProgress } from './components/MissionProgress';
+import { DynamicLoadingScreen } from './components/DynamicLoadingScreen';
 import { SimulationConsoleModal } from './components/SimulationConsoleModal';
-import { ScenarioPlayerModal } from './components/ScenarioPlayerModal';
 import { AgentTraceModal } from './components/AgentTraceModal';
+import { ScenarioPlayerModal } from './components/ScenarioPlayerModal';
+import { DeliveriesModal } from './components/DeliveriesModal';
+import { IncidentsModal } from './components/IncidentsModal';
 import { AnalyticsModal } from './components/AnalyticsModal';
 import { SettingsModal } from './components/SettingsModal';
-import { IncidentsModal } from './components/IncidentsModal';
-import { DeliveriesModal } from './components/DeliveriesModal';
 import { DriverCompanionModal } from './components/DriverCompanionModal';
-import { CustomerTrackingModal } from './components/CustomerTrackingModal';
+import { EnterprisePolicyModal } from './components/EnterprisePolicyModal';
+import { FlightRecorderModal } from './components/FlightRecorderModal';
+import { DepotHierarchyModal } from './components/DepotHierarchyModal';
+import { DriverSafetyModal } from './components/DriverSafetyModal';
+import { SmartChargingModal } from './components/SmartChargingModal';
+import { WeatherRadarModal } from './components/WeatherRadarModal';
+import { YardManagementModal } from './components/YardManagementModal';
+import { HOSComplianceModal } from './components/HOSComplianceModal';
+import { PredictiveMaintenanceModal } from './components/PredictiveMaintenanceModal';
+import { SecureConvoyModal } from './components/SecureConvoyModal';
+import { CryoColdChainModal } from './components/CryoColdChainModal';
 import { CommandBar } from './components/CommandBar';
-import { DynamicLoadingScreen } from './components/DynamicLoadingScreen';
-import { SimulationState, Vehicle, Route, Order } from './types/fleet';
-import { fetchSimulationState } from './services/api';
-import { fleetWS, ConnectionStatus } from './services/websocket';
+import { CustomerTrackingModal } from './components/CustomerTrackingModal';
+import { AuditLogsModal } from './components/AuditLogsModal';
+import { FleetImporterModal } from './components/FleetImporterModal';
+import { CITY_PRESETS, CityPreset } from './services/cityPresets';
+import { generateInitialFallbackState } from './services/fallbackData';
+
+const INITIAL_FALLBACK_STATE: SimulationState = generateInitialFallbackState();
 
 export const App: React.FC = () => {
-  const [state, setState] = useState<SimulationState | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<string>('operations');
+  const [state, setState] = useState<SimulationState>(INITIAL_FALLBACK_STATE);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_FALLBACK_STATE.vehicles);
+  const [routes, setRoutes] = useState<Route[]>(INITIAL_FALLBACK_STATE.routes);
+  const [orders, setOrders] = useState<Order[]>(INITIAL_FALLBACK_STATE.orders);
+  const [activeIncident, setActiveIncident] = useState<Incident | null>(null);
+  const [agentSteps, setAgentSteps] = useState<AgentStep[]>(INITIAL_FALLBACK_STATE.agent_steps);
+  const [events, setEvents] = useState<LiveEvent[]>(INITIAL_FALLBACK_STATE.events);
+  const [metrics, setMetrics] = useState<MissionScore>(INITIAL_FALLBACK_STATE.metrics);
+
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [selectedDepot, setSelectedDepot] = useState<string>('ALL');
+  const [activeTab, setActiveTab] = useState<string>('operations');
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('open');
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Modals
   const [isConsoleOpen, setIsConsoleOpen] = useState<boolean>(false);
   const [consoleInitialTab, setConsoleInitialTab] = useState<'disruptions' | 'fleet' | 'routes'>('disruptions');
-  const [isScenariosOpen, setIsScenariosOpen] = useState<boolean>(false);
   const [isTraceOpen, setIsTraceOpen] = useState<boolean>(false);
+  const [isScenariosOpen, setIsScenariosOpen] = useState<boolean>(false);
+  const [isDeliveriesOpen, setIsDeliveriesOpen] = useState<boolean>(false);
+  const [isIncidentsOpen, setIsIncidentsOpen] = useState<boolean>(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isIncidentsOpen, setIsIncidentsOpen] = useState<boolean>(false);
-  const [isDeliveriesOpen, setIsDeliveriesOpen] = useState<boolean>(false);
-  const [isDriverModalOpen, setIsDriverModalOpen] = useState<boolean>(false);
+  const [isDriverOpen, setIsDriverOpen] = useState<boolean>(false);
+  const [isPoliciesOpen, setIsPoliciesOpen] = useState<boolean>(false);
+  const [isFlightRecorderOpen, setIsFlightRecorderOpen] = useState<boolean>(false);
+  const [isDepotHierarchyOpen, setIsDepotHierarchyOpen] = useState<boolean>(false);
+  const [isSafetyOpen, setIsSafetyOpen] = useState<boolean>(false);
+  const [isChargingOpen, setIsChargingOpen] = useState<boolean>(false);
+  const [isWeatherOpen, setIsWeatherOpen] = useState<boolean>(false);
+  const [isYardOpen, setIsYardOpen] = useState<boolean>(false);
+  const [isHOSOpen, setIsHOSOpen] = useState<boolean>(false);
+  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState<boolean>(false);
+  const [isConvoyOpen, setIsConvoyOpen] = useState<boolean>(false);
+  const [isCryoOpen, setIsCryoOpen] = useState<boolean>(false);
+  const [isAuditLogsOpen, setIsAuditLogsOpen] = useState<boolean>(false);
+  const [isImporterOpen, setIsImporterOpen] = useState<boolean>(false);
+  const [currentCityId, setCurrentCityId] = useState<string>('sf');
+  const [currentCityCenter, setCurrentCityCenter] = useState<{ lat: number; lng: number; zoom?: number }>({
+    lat: 37.7749,
+    lng: -122.4194,
+    zoom: 12.5
+  });
+  const [selectedDepot, setSelectedDepot] = useState<string>('ALL');
+  const [isCommandOpen, setIsCommandOpen] = useState<boolean>(false);
   const [isTrackingOpen, setIsTrackingOpen] = useState<boolean>(false);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
-  const [isCommandOpen, setIsCommandOpen] = useState<boolean>(false);
 
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
-
-  // Read the latest sound preference from inside the (stable) WS subscription without
-  // resubscribing — toggling sound must not tear down the live socket.
-  const soundEnabledRef = useRef(soundEnabled);
-  useEffect(() => {
-    soundEnabledRef.current = soundEnabled;
-  }, [soundEnabled]);
-
-  // Alert audio chime
-  const playAlertChime = () => {
-    if (!soundEnabledRef.current) return;
+  // Apply Global City Preset
+  const handleApplyCityPreset = async (preset: CityPreset) => {
+    setCurrentCityId(preset.id);
+    setCurrentCityCenter(preset.center);
+    setVehicles(preset.vehicles);
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.3);
-    } catch (e) {
-      // Audio context may need initial gesture
+      await fetch('/api/enterprise/fleet/import-city', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          city_id: preset.id,
+          city_name: preset.name,
+          center: preset.center,
+          depots: preset.depots,
+          vehicles: preset.vehicles
+        })
+      });
+    } catch (err) {
+      console.warn('Backend city import sync (local fallback active):', err);
     }
   };
 
-  // Initial Load & WebSocket Synchronization
+  // Ingest Custom Vehicles from CSV / GeoJSON
+  const handleImportCustomFleet = async (customVehicles: Vehicle[], mode: 'replace' | 'append') => {
+    if (customVehicles.length === 0) return;
+    if (mode === 'replace') {
+      setVehicles(customVehicles);
+      // Calculate centroid
+      const avgLat = customVehicles.reduce((sum, v) => sum + v.location.lat, 0) / customVehicles.length;
+      const avgLng = customVehicles.reduce((sum, v) => sum + v.location.lng, 0) / customVehicles.length;
+      setCurrentCityCenter({ lat: avgLat, lng: avgLng, zoom: 12.5 });
+    } else {
+      setVehicles((prev) => [...prev, ...customVehicles]);
+    }
+
+    try {
+      await fetch('/api/enterprise/fleet/import-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode,
+          records: customVehicles.map((v) => ({
+            id: v.id,
+            model: v.model,
+            type: v.type,
+            status: v.status,
+            battery: v.battery_fuel_percent,
+            lat: v.location.lat,
+            lng: v.location.lng,
+            speed_kmh: v.speed_kmh
+          }))
+        })
+      });
+    } catch (err) {
+      console.warn('Backend custom fleet import sync (local fallback active):', err);
+    }
+  };
+
+  // Window-level file drag listener for instant Data Studio popup
   useEffect(() => {
-    fetchSimulationState()
-      .then(setState)
-      .catch(console.error);
-
-    const unsubscribe = fleetWS.subscribe((msg) => {
-      if (msg.type === 'INITIAL_STATE' && msg.state) {
-        setState(msg.state);
-      } else if (msg.type === 'TELEMETRY_TICK') {
-        setState((prev) => {
-          if (!prev) return prev;
-          const vehiclesMap = new Map(msg.vehicles?.map(v => [v.id, v]));
-          const updatedVehicles = prev.vehicles.map(v => {
-            const u = vehiclesMap.get(v.id);
-            if (!u) return v;
-            return {
-              ...v,
-              location: { ...v.location, lat: u.lat, lng: u.lng },
-              speed_kmh: u.speed_kmh,
-              status: u.status as any,
-              battery_fuel_percent: u.battery_fuel_percent,
-              current_load_kg: u.current_load_kg,
-              current_route_id: u.current_route_id,
-              telemetry_health: u.telemetry_health
-            };
-          });
-
-          return {
-            ...prev,
-            vehicles: updatedVehicles,
-            sim_time: msg.sim_time || prev.sim_time,
-            metrics: msg.metrics || prev.metrics,
-            // weather + traffic_zones now ride along each tick so map overlays stay live
-            weather: msg.weather || prev.weather,
-            traffic_zones: msg.traffic_zones || prev.traffic_zones,
-            is_paused: msg.is_paused !== undefined ? msg.is_paused : prev.is_paused,
-            speed_multiplier: msg.speed_multiplier !== undefined ? msg.speed_multiplier : prev.speed_multiplier
-          };
-        });
-      } else if (msg.type === 'FLEET_UPDATED') {
-        setState((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            vehicles: (msg.vehicles as Vehicle[]) || prev.vehicles,
-            routes: (msg.routes as any) || prev.routes,
-            orders: (msg.orders as any[]) || prev.orders,
-            events: (msg.events as any[]) || prev.events,
-            metrics: msg.metrics || prev.metrics,
-            active_incident: msg.active_incident !== undefined ? msg.active_incident : prev.active_incident
-          };
-        });
-      } else if (msg.type === 'ROUTE_UPDATED') {
-        setState((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            routes: (msg.routes as any) || prev.routes,
-            vehicles: (msg.vehicles as Vehicle[]) || prev.vehicles,
-            events: (msg.events as any[]) || prev.events
-          };
-        });
-      } else if (msg.type === 'SIMULATION_CONFIG') {
-        setState((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            is_paused: msg.is_paused !== undefined ? msg.is_paused : prev.is_paused,
-            speed_multiplier: msg.speed_multiplier !== undefined ? msg.speed_multiplier : prev.speed_multiplier
-          };
-        });
-      } else if (msg.type === 'INCIDENT_DETECTED' && msg.incident) {
-        playAlertChime();
-        setState((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            active_incident: msg.incident,
-            vehicles: (msg.vehicles as Vehicle[]) || prev.vehicles,
-            orders: (msg.orders as any[]) || prev.orders,
-            events: (msg.events as any[]) || prev.events,
-            metrics: msg.metrics || prev.metrics,
-            weather: msg.weather || prev.weather,
-            traffic_zones: msg.traffic_zones || prev.traffic_zones
-          };
-        });
-      } else if (msg.type === 'INCIDENT_RESOLVING') {
-        setState((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            active_incident: msg.incident || msg.active_incident || (prev.active_incident ? { ...prev.active_incident, resolution_status: 'Resolving' } : null)
-          };
-        });
-      } else if (msg.type === 'AGENT_STEP' && msg.step) {
-        setState((prev) => {
-          if (!prev) return prev;
-          const newSteps = [...prev.agent_steps, msg.step!];
-          if (newSteps.length > 40) newSteps.shift();
-          return {
-            ...prev,
-            agent_steps: newSteps,
-            routes: (msg.routes as any) || prev.routes,
-            vehicles: (msg.vehicles as Vehicle[]) || prev.vehicles,
-            orders: (msg.orders as any[]) || prev.orders,
-            metrics: msg.metrics || prev.metrics,
-            active_incident: msg.active_incident !== undefined ? msg.active_incident : prev.active_incident
-          };
-        });
+    const handleWindowDrop = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        setIsImporterOpen(true);
       }
-    });
+    };
+    const handleDragOver = (e: DragEvent) => e.preventDefault();
+    window.addEventListener('drop', handleWindowDrop);
+    window.addEventListener('dragover', handleDragOver);
+    return () => {
+      window.removeEventListener('drop', handleWindowDrop);
+      window.removeEventListener('dragover', handleDragOver);
+    };
+  }, []);
+
+  // Initial HTTP State Hydration
+  useEffect(() => {
+    let isMounted = true;
+    async function init() {
+      try {
+        const data = await fetchSimulationState();
+        if (isMounted && data) {
+          setState(data);
+          if (data.vehicles) setVehicles(data.vehicles);
+          if (data.routes) setRoutes(data.routes);
+          if (data.orders) setOrders(data.orders);
+          if (data.active_incident !== undefined) setActiveIncident(data.active_incident);
+          if (data.agent_steps) setAgentSteps(data.agent_steps);
+          if (data.events) setEvents(data.events);
+          if (data.metrics) setMetrics(data.metrics);
+        }
+      } catch (err) {
+        console.warn('Initial simulation state fetch failed (will connect via WS):', err);
+      } finally {
+        if (isMounted) {
+          setTimeout(() => setIsLoading(false), 500);
+        }
+      }
+    }
+    init();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Real-Time WebSocket Streaming
+  useEffect(() => {
+    const handleMessage: WSMessageHandler = (msg) => {
+      switch (msg.type) {
+        case 'INITIAL_STATE':
+          if (msg.state) {
+            setState(msg.state);
+            setVehicles(msg.state.vehicles || []);
+            setRoutes(msg.state.routes || []);
+            setOrders(msg.state.orders || []);
+            setActiveIncident(msg.state.active_incident || null);
+            setAgentSteps(msg.state.agent_steps || []);
+            setEvents(msg.state.events || []);
+            if (msg.state.metrics) setMetrics(msg.state.metrics);
+          }
+          break;
+
+        case 'TELEMETRY_TICK':
+          if (msg.vehicles) {
+            setVehicles(msg.vehicles);
+          }
+          if (msg.metrics) {
+            setMetrics(msg.metrics);
+          }
+          if (msg.events && msg.events.length > 0) {
+            setEvents((prev) => [...msg.events, ...prev].slice(0, 40));
+          }
+          break;
+
+        case 'INCIDENT_DETECTED':
+          if (msg.incident) {
+            setActiveIncident(msg.incident);
+          }
+          break;
+
+        case 'INCIDENT_RESOLVED':
+          if (msg.incident) {
+            setActiveIncident(null);
+          }
+          break;
+
+        case 'AGENT_STEP':
+          if (msg.step) {
+            const newStep = msg.step as AgentStep;
+            setAgentSteps((prev) => [...prev, newStep]);
+          }
+          break;
+
+        case 'FLEET_UPDATED':
+          if (msg.vehicles) setVehicles(msg.vehicles);
+          if (msg.routes) setRoutes(msg.routes);
+          if (msg.orders) setOrders(msg.orders);
+          if (msg.active_incident !== undefined) setActiveIncident(msg.active_incident);
+          if (msg.events) setEvents(msg.events);
+          if (msg.metrics) setMetrics(msg.metrics);
+          break;
+
+        case 'ROUTE_UPDATED':
+          if (msg.route) {
+            setRoutes((prev) => {
+              const filtered = prev.filter((r) => r.id !== msg.route.id && r.vehicle_id !== msg.route.vehicle_id);
+              return [...filtered, msg.route];
+            });
+          }
+          if (msg.routes) setRoutes(msg.routes);
+          if (msg.vehicles) setVehicles(msg.vehicles);
+          break;
+
+        case 'SIMULATION_CONFIG':
+          setState((prev) => ({
+            ...prev,
+            is_paused: msg.is_paused !== undefined ? msg.is_paused : prev.is_paused,
+            speed_multiplier: msg.speed_multiplier !== undefined ? msg.speed_multiplier : prev.speed_multiplier
+          }));
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    const unsub = connectFleetWebSocket(handleMessage);
+    const unsubStatus = fleetWS.onStatus((s) => setConnectionStatus(s));
 
     return () => {
-      unsubscribe();
+      unsub();
+      unsubStatus();
+      disconnectFleetWebSocket();
     };
-    // Subscribe once; sound preference is read via ref so the socket stays alive.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Track live backend connection status for the TopBar link pill.
-  useEffect(() => {
-    const unsub = fleetWS.onStatus(setConnectionStatus);
-    return unsub;
+  const handleOpenConsole = useCallback((tab?: 'disruptions' | 'fleet' | 'routes') => {
+    setConsoleInitialTab(tab || 'disruptions');
+    setIsConsoleOpen(true);
   }, []);
 
-  // Global ⌘K / Ctrl+K toggles the Ask-Aegis command bar from anywhere.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
-        setIsCommandOpen((open) => !open);
-      }
+  const displayedVehicles = useMemo(() => {
+    if (selectedDepot === 'ALL') return vehicles;
+    return vehicles.filter(v => (v.depot_id || 'DEPOT-01') === selectedDepot);
+  }, [vehicles, selectedDepot]);
+
+  const displayedOrders = useMemo(() => {
+    if (selectedDepot === 'ALL') return orders;
+    return orders.filter(o => {
+      const assignedV = vehicles.find(v => v.id === o.assigned_vehicle_id);
+      return assignedV ? (assignedV.depot_id || 'DEPOT-01') === selectedDepot : true;
+    });
+  }, [orders, vehicles, selectedDepot]);
+
+  const aggregatedState: SimulationState = useMemo(() => {
+    const base = state || INITIAL_FALLBACK_STATE;
+    return {
+      ...base,
+      vehicles: displayedVehicles,
+      routes,
+      orders: displayedOrders,
+      active_incident: activeIncident,
+      agent_steps: agentSteps,
+      events,
+      metrics,
+      weather: base.weather || INITIAL_FALLBACK_STATE.weather,
+      traffic_zones: base.traffic_zones || {}
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [state, displayedVehicles, routes, displayedOrders, activeIncident, agentSteps, events, metrics]);
 
-  const rawVehicles = state?.vehicles || [];
-  const vehicles = selectedDepot === 'ALL' 
-    ? rawVehicles 
-    : rawVehicles.filter(v => (v as any).depot_id === selectedDepot || v.id.slice(-1) === selectedDepot.slice(-1));
-  const orders = state?.orders || [];
-  const routes = state?.routes || [];
-  const activeIncident = state?.active_incident;
-  const agentSteps = state?.agent_steps || [];
-  const events = state?.events || [];
-  const weather = state?.weather;
-  const trafficZones = state?.traffic_zones;
-  const speedMultiplier = state?.speed_multiplier ?? 1.0;
-  const isPaused = state?.is_paused ?? false;
-  const metrics = state?.metrics || {
-    score: 8620,
-    completed_orders_today: 86,
-    total_orders_today: 100,
-    active_incidents_count: 1,
-    resolved_incidents_count: 14,
-    avg_resolution_seconds: 38.5,
-    efficiency_percent: 92,
-    on_time_rate_percent: 92.0,
-    fuel_cost_today_usd: 12400.00,
-    current_level: 1
-  };
-
-  const handleSelectTab = (tabId: string) => {
-    setActiveTab(tabId);
-    switch (tabId) {
-      case 'fleet':
-        setConsoleInitialTab('fleet');
-        setIsConsoleOpen(true);
-        break;
-      case 'analytics':
-        setIsAnalyticsOpen(true);
-        break;
-      case 'simulation':
-        setIsScenariosOpen(true);
-        break;
-      case 'reports':
-        setIsDeliveriesOpen(true);
-        break;
-      default:
-        // 'operations' — the live dashboard is already the base view
-        break;
-    }
-  };
-
-  const openCommandBar = () => {
-    setIsCommandOpen(true);
-  };
-
-  // Route a client-side action returned by the command interpreter to the UI.
-  const handleCommandAction = (action: string, data?: any) => {
-    switch (action) {
-      case 'focus_vehicle':
-        if (data?.vehicle_id) setSelectedVehicleId(data.vehicle_id);
-        break;
-      case 'open_panel':
-        switch (data?.panel) {
-          case 'analytics':
-            setActiveTab('analytics');
-            setIsAnalyticsOpen(true);
-            break;
-          case 'incidents':
-            setIsIncidentsOpen(true);
-            break;
-          case 'deliveries':
-            setActiveTab('reports');
-            setIsDeliveriesOpen(true);
-            break;
-          case 'scenarios':
-            setIsScenariosOpen(true);
-            break;
-          case 'trace':
-            setIsTraceOpen(true);
-            break;
-          case 'settings':
-            setIsSettingsOpen(true);
-            break;
-          case 'fleet':
-            setActiveTab('fleet');
-            setConsoleInitialTab('fleet');
-            setIsConsoleOpen(true);
-            break;
-          case 'console':
-          default:
-            setActiveTab('simulation');
-            setConsoleInitialTab('disruptions');
-            setIsConsoleOpen(true);
-            break;
-        }
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleUpdateVehicles = (newVehicles: Vehicle[]) => {
-    setState((prev) => (prev ? { ...prev, vehicles: newVehicles } : null));
-  };
-
-  const handleUpdateRoutes = (newRoutes: Route[]) => {
-    setState((prev) => (prev ? { ...prev, routes: newRoutes } : null));
-  };
+  if (isLoading) {
+    return <DynamicLoadingScreen />;
+  }
 
   return (
-    <div className="app-canvas flex flex-col h-screen w-screen text-slate-100 overflow-hidden select-none font-sans">
-      {isLoading && (
-        <DynamicLoadingScreen onComplete={() => setIsLoading(false)} />
-      )}
-
-      {/* Top Header Bar */}
+    <div className="w-screen h-screen flex flex-col bg-[#080C14] text-slate-100 overflow-hidden select-none font-sans">
+      {/* Top Navigation Bar */}
       <TopBar
-        state={state}
+        state={aggregatedState}
         activeTab={activeTab}
         connectionStatus={connectionStatus}
-        onSelectTab={handleSelectTab}
-        onOpenCommand={openCommandBar}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'reports') setIsAuditLogsOpen(true);
+          else if (tab === 'simulation') setIsScenariosOpen(true);
+        }}
+        onOpenCommand={() => setIsCommandOpen(true)}
         onOpenIncidents={() => setIsIncidentsOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         soundEnabled={soundEnabled}
         onToggleSound={() => setSoundEnabled(!soundEnabled)}
         selectedDepot={selectedDepot}
         onSelectDepot={setSelectedDepot}
-        onOpenDriverModal={() => setIsDriverModalOpen(true)}
+        onOpenDriverModal={() => setIsDriverOpen(true)}
+        onOpenPolicies={() => setIsPoliciesOpen(true)}
+        onOpenFlightRecorder={() => setIsFlightRecorderOpen(true)}
+        onOpenDepots={() => setIsDepotHierarchyOpen(true)}
+        onOpenSafety={() => setIsSafetyOpen(true)}
+        onOpenCharging={() => setIsChargingOpen(true)}
+        onOpenWeather={() => setIsWeatherOpen(true)}
+        onOpenYard={() => setIsYardOpen(true)}
+        onOpenHOS={() => setIsHOSOpen(true)}
+        onOpenMaintenance={() => setIsMaintenanceOpen(true)}
+        onOpenConvoy={() => setIsConvoyOpen(true)}
+        onOpenCryo={() => setIsCryoOpen(true)}
+        onOpenConsole={handleOpenConsole}
+        onOpenAuditLogs={() => setIsAuditLogsOpen(true)}
+        onOpenImporter={() => setIsImporterOpen(true)}
       />
 
-      {/* Main Command Center Grid */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Interactive Navigation Sidebar */}
+      {/* Main 3-Column Command Center Workspace */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Left Sidebar */}
         <LeftSidebar
-          state={state}
-          onOpenConsole={(tab) => {
-            setConsoleInitialTab(tab || 'disruptions');
-            setIsConsoleOpen(true);
-          }}
+          state={aggregatedState}
+          onOpenConsole={handleOpenConsole}
           onOpenDeliveries={() => setIsDeliveriesOpen(true)}
           onOpenIncidents={() => setIsIncidentsOpen(true)}
           onOpenAgents={() => setIsTraceOpen(true)}
           onOpenAnalytics={() => setIsAnalyticsOpen(true)}
         />
 
-        {/* Center Panel: Interactive Map & Live Operations Feed */}
-        <main className="flex-1 flex flex-col p-2 gap-2 overflow-y-auto min-h-0 min-w-0">
-          {/* Top Half: Dynamic Live Fleet Map */}
-          <div className="min-h-[340px] lg:min-h-[380px] flex-1 shrink-0">
+        {/* Center Panel: Advanced Geospatial Map & Operational Feeds */}
+        <main className="flex-1 flex flex-col p-2 space-y-2 overflow-hidden">
+          {/* Top Half: Live Geospatial Map */}
+          <div className="flex-1 min-h-[380px]">
             <FleetMap
-              vehicles={vehicles}
+              vehicles={displayedVehicles}
               routes={routes}
-              orders={orders}
+              orders={displayedOrders}
               activeIncident={activeIncident}
-              weather={weather}
-              trafficZones={trafficZones}
-              speedMultiplier={speedMultiplier}
-              isPaused={isPaused}
+              weather={aggregatedState.weather}
+              trafficZones={aggregatedState.traffic_zones}
+              speedMultiplier={aggregatedState.speed_multiplier}
+              isPaused={aggregatedState.is_paused}
               selectedVehicleId={selectedVehicleId}
               onSelectVehicle={setSelectedVehicleId}
+              onOpenConsole={handleOpenConsole}
+              cityCenter={currentCityCenter}
             />
           </div>
 
           {/* Bottom Half: Split View (Live Events Stream + Active Deliveries Table) */}
-          <div className="h-[270px] shrink-0 grid grid-cols-12 gap-2">
-            <div className="col-span-4 h-full min-h-0">
+          <div className="h-[270px] grid grid-cols-12 gap-2">
+            <div className="col-span-4 h-full">
               <LiveEventsPanel events={events} onSelectVehicle={setSelectedVehicleId} />
             </div>
-            <div className="col-span-8 h-full min-h-0">
+            <div className="col-span-8 h-full">
               <DeliveriesTable 
-                orders={orders} 
+                orders={displayedOrders} 
                 onSelectVehicle={setSelectedVehicleId}
                 onTrackOrder={(order) => {
                   setTrackingOrder(order);
@@ -393,10 +410,7 @@ export const App: React.FC = () => {
         </main>
 
         {/* Right Panel: Incident Response & Multi-Agent Swarm Feed */}
-        <aside
-          className="w-[310px] xl:w-[360px] h-full shrink-0 flex flex-col gap-2.5 p-2.5 overflow-y-auto min-h-0"
-          style={{ borderLeft: '1px solid var(--edge)', background: 'rgba(9,13,22,0.55)' }}
-        >
+        <aside className="w-[360px] shrink-0 border-l border-[#1E293B] bg-[#0E131F] p-2 flex flex-col space-y-2 overflow-y-auto">
           {/* 1. Active Incident Card */}
           <ActiveIncidentCard
             incident={activeIncident}
@@ -404,21 +418,15 @@ export const App: React.FC = () => {
             onSelectVehicle={setSelectedVehicleId}
           />
 
-          {/* 2. Functional AI Recommendation — Approve Plan dispatches real resolution */}
-          <AIRecommendationCard
-            incident={activeIncident}
-            onShowAlternatives={() => setIsTraceOpen(true)}
-          />
-
-          {/* 3. Agent Activity Pipeline Feed */}
-          <div className="shrink-0 min-h-[220px] max-h-[320px] flex flex-col">
+          {/* 2. Multi-Agent Swarm Activity Feed */}
+          <div className="flex-1 min-h-[250px]">
             <AgentActivityFeed
               steps={agentSteps}
               onOpenTraceModal={() => setIsTraceOpen(true)}
             />
           </div>
 
-          {/* 4. Mission Progress & Scoring */}
+          {/* 3. Mission Progress & Scoring */}
           <MissionProgress
             metrics={metrics}
             onOpenScenarios={() => setIsScenariosOpen(true)}
@@ -433,34 +441,21 @@ export const App: React.FC = () => {
         vehicles={vehicles}
         orders={orders}
         initialTab={consoleInitialTab}
-        onUpdateVehicles={handleUpdateVehicles}
-        onUpdateRoutes={handleUpdateRoutes}
-      />
-
-      <ScenarioPlayerModal
-        isOpen={isScenariosOpen}
-        onClose={() => setIsScenariosOpen(false)}
-        currentLevel={metrics.current_level}
+        onUpdateVehicles={(updated) => setVehicles(updated)}
+        onUpdateRoutes={(updated) => setRoutes(updated)}
       />
 
       <AgentTraceModal
         isOpen={isTraceOpen}
         onClose={() => setIsTraceOpen(false)}
+        activeIncident={activeIncident}
         steps={agentSteps}
-        activeIncident={activeIncident}
       />
 
-      <AnalyticsModal
-        isOpen={isAnalyticsOpen}
-        onClose={() => setIsAnalyticsOpen(false)}
-        metrics={metrics}
-      />
-
-      <IncidentsModal
-        isOpen={isIncidentsOpen}
-        onClose={() => setIsIncidentsOpen(false)}
-        activeIncident={activeIncident}
-        onInspectTrace={() => setIsTraceOpen(true)}
+      <ScenarioPlayerModal
+        isOpen={isScenariosOpen}
+        onClose={() => setIsScenariosOpen(false)}
+        currentLevel={metrics.current_level || 1}
       />
 
       <DeliveriesModal
@@ -470,18 +465,17 @@ export const App: React.FC = () => {
         onSelectVehicle={setSelectedVehicleId}
       />
 
-      <DriverCompanionModal
-        isOpen={isDriverModalOpen}
-        onClose={() => setIsDriverModalOpen(false)}
-        selectedVehicle={selectedVehicleId ? (vehicles.find(v => v.id === selectedVehicleId) || null) : (vehicles[0] || null)}
-        orders={orders}
+      <IncidentsModal
+        isOpen={isIncidentsOpen}
+        onClose={() => setIsIncidentsOpen(false)}
+        activeIncident={activeIncident}
+        onInspectTrace={() => setIsTraceOpen(true)}
       />
 
-      <CustomerTrackingModal
-        isOpen={isTrackingOpen}
-        onClose={() => setIsTrackingOpen(false)}
-        initialOrder={trackingOrder}
-        orders={orders}
+      <AnalyticsModal
+        isOpen={isAnalyticsOpen}
+        onClose={() => setIsAnalyticsOpen(false)}
+        metrics={metrics}
       />
 
       <SettingsModal
@@ -491,11 +485,109 @@ export const App: React.FC = () => {
         onToggleSound={() => setSoundEnabled(!soundEnabled)}
       />
 
-      {/* Ask-Aegis command bar (⌘K) — the console's live command surface */}
+      <DriverCompanionModal
+        isOpen={isDriverOpen}
+        onClose={() => setIsDriverOpen(false)}
+        selectedVehicle={vehicles.find(v => v.id === selectedVehicleId) || vehicles[0] || null}
+        orders={orders.filter(o => o.assigned_vehicle_id === (selectedVehicleId || vehicles[0]?.id))}
+      />
+
+      <EnterprisePolicyModal
+        isOpen={isPoliciesOpen}
+        onClose={() => setIsPoliciesOpen(false)}
+      />
+
+      <FlightRecorderModal
+        isOpen={isFlightRecorderOpen}
+        onClose={() => setIsFlightRecorderOpen(false)}
+        state={aggregatedState}
+        activeIncident={activeIncident}
+      />
+
+      <DepotHierarchyModal
+        isOpen={isDepotHierarchyOpen}
+        onClose={() => setIsDepotHierarchyOpen(false)}
+        selectedDepot={selectedDepot}
+        onSelectDepot={setSelectedDepot}
+        vehicles={vehicles}
+      />
+
+      <DriverSafetyModal
+        isOpen={isSafetyOpen}
+        onClose={() => setIsSafetyOpen(false)}
+      />
+
+      <SmartChargingModal
+        isOpen={isChargingOpen}
+        onClose={() => setIsChargingOpen(false)}
+      />
+
+      <WeatherRadarModal
+        isOpen={isWeatherOpen}
+        onClose={() => setIsWeatherOpen(false)}
+      />
+
+      <YardManagementModal
+        isOpen={isYardOpen}
+        onClose={() => setIsYardOpen(false)}
+      />
+
+      <HOSComplianceModal
+        isOpen={isHOSOpen}
+        onClose={() => setIsHOSOpen(false)}
+      />
+
+      <PredictiveMaintenanceModal
+        isOpen={isMaintenanceOpen}
+        onClose={() => setIsMaintenanceOpen(false)}
+      />
+
+      <SecureConvoyModal
+        isOpen={isConvoyOpen}
+        onClose={() => setIsConvoyOpen(false)}
+      />
+
+      <CryoColdChainModal
+        isOpen={isCryoOpen}
+        onClose={() => setIsCryoOpen(false)}
+      />
+
       <CommandBar
         isOpen={isCommandOpen}
         onClose={() => setIsCommandOpen(false)}
-        onAction={handleCommandAction}
+        onAction={(action: string, data?: any) => {
+          if (action === 'focus_vehicle' && data?.vehicle_id) {
+            setSelectedVehicleId(data.vehicle_id);
+          } else if (action === 'open_incidents') {
+            setIsIncidentsOpen(true);
+          } else if (action === 'open_scenarios') {
+            setIsScenariosOpen(true);
+          }
+        }}
+      />
+
+      <CustomerTrackingModal
+        isOpen={isTrackingOpen}
+        onClose={() => setIsTrackingOpen(false)}
+        initialOrder={trackingOrder}
+        orders={orders}
+      />
+
+      <AuditLogsModal
+        isOpen={isAuditLogsOpen}
+        onClose={() => setIsAuditLogsOpen(false)}
+        events={events}
+        vehicles={vehicles}
+        metrics={metrics}
+      />
+
+      <FleetImporterModal
+        isOpen={isImporterOpen}
+        onClose={() => setIsImporterOpen(false)}
+        currentCityId={currentCityId}
+        currentVehicles={vehicles}
+        onApplyCityPreset={handleApplyCityPreset}
+        onImportCustomFleet={handleImportCustomFleet}
       />
     </div>
   );

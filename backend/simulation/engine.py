@@ -9,6 +9,7 @@ from backend.models.schema import (
 )
 from backend.simulation.world_data import generate_initial_world_data
 from backend.agents.multi_agent_system import MultiAgentOrchestrator
+from backend.simulation.blackbox import BlackboxRecorder
 
 class SimulationEngine:
     def __init__(self):
@@ -62,6 +63,9 @@ class SimulationEngine:
             world_state=self.world_state,
             event_callback=self.broadcast_agent_event
         )
+        
+        # Autonomous flight recorder & telemetry blackbox
+        self.blackbox = BlackboxRecorder()
         
         self._add_event(IncidentSeverity.INFO, "System", "Autonomous Fleet Operations Engine initialized with 100 vehicles & 20 active routes.")
 
@@ -217,6 +221,16 @@ class SimulationEngine:
                             self._add_event(IncidentSeverity.INFO, "Delivery", f"Order {o.id} successfully delivered to {o.customer_name} by vehicle {v.id}.", vehicle_id=v.id, order_id=o.id)
 
         # Broadcast telemetry update
+        # 5. Record snapshot into autonomous blackbox flight recorder
+        self.blackbox.record_tick(
+            vehicles=self.vehicles,
+            routes=self.routes,
+            active_incident=self.active_incident,
+            agent_steps=self.recent_agent_steps,
+            sim_time=self.sim_time.strftime("%H:%M:%S"),
+            metrics=self.metrics
+        )
+
         # Note: weather + traffic_zones ride along each tick (tiny payload) so the
         # frontend map overlays react live to weather/traffic disruptions.
         await self.broadcast({
