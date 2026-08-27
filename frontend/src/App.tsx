@@ -34,6 +34,7 @@ import { CommandBar } from './components/CommandBar';
 import { CustomerTrackingModal } from './components/CustomerTrackingModal';
 import { AuditLogsModal } from './components/AuditLogsModal';
 import { FleetImporterModal } from './components/FleetImporterModal';
+import { WebhookAlertingModal } from './components/WebhookAlertingModal';
 import { CITY_PRESETS, CityPreset } from './services/cityPresets';
 import { generateInitialFallbackState } from './services/fallbackData';
 
@@ -78,6 +79,7 @@ export const App: React.FC = () => {
   const [isCryoOpen, setIsCryoOpen] = useState<boolean>(false);
   const [isAuditLogsOpen, setIsAuditLogsOpen] = useState<boolean>(false);
   const [isImporterOpen, setIsImporterOpen] = useState<boolean>(false);
+  const [isWebhooksOpen, setIsWebhooksOpen] = useState<boolean>(false);
   const [currentCityId, setCurrentCityId] = useState<string>('sf');
   const [currentCityCenter, setCurrentCityCenter] = useState<{ lat: number; lng: number; zoom?: number }>({
     lat: 37.7749,
@@ -357,6 +359,7 @@ export const App: React.FC = () => {
         onOpenConsole={handleOpenConsole}
         onOpenAuditLogs={() => setIsAuditLogsOpen(true)}
         onOpenImporter={() => setIsImporterOpen(true)}
+        onOpenWebhooks={() => setIsWebhooksOpen(true)}
       />
 
       {/* Main 3-Column Command Center Workspace */}
@@ -588,6 +591,11 @@ export const App: React.FC = () => {
         currentVehicles={vehicles}
         onApplyCityPreset={handleApplyCityPreset}
         onImportCustomFleet={handleImportCustomFleet}
+      />
+
+      <WebhookAlertingModal
+        isOpen={isWebhooksOpen}
+        onClose={() => setIsWebhooksOpen(false)}
       />
     </div>
   );

@@ -722,5 +722,63 @@ def test_mappls_ev_auto_charge_route_planner():
     assert len(data["optimized_waypoints"]) == 3
     assert data["recommended_charger"]["power_kw"] >= 150
 
+# =========================================================================
+# Phase 16: Enterprise Webhook & Automated Incident Alerting Tests
+# =========================================================================
+def test_enterprise_webhooks_listing():
+    """Tests listing all registered enterprise incident webhooks."""
+    response = client.get("/api/enterprise/webhooks")
+    assert response.status_code == 200
+    data = response.json()
+    assert "webhooks" in data
+    assert len(data["webhooks"]) >= 3
+    assert any(w["type"] == "slack" for w in data["webhooks"])
+    assert any(w["type"] == "pagerduty" for w in data["webhooks"])
+
+def test_enterprise_webhook_creation_and_deletion():
+    """Tests provisioning and deleting a custom HMAC incident webhook."""
+    new_wh_payload = {
+        "name": "Custom Fleet Ops Security SIEM",
+        "type": "custom_hmac",
+        "target_url": "https://siem.enterprise.com/ingest/helix",
+        "events": ["DEFCON_LOCKDOWN", "CRASH_DETECTED"]
+    }
+    create_res = client.post("/api/enterprise/webhooks", json=new_wh_payload)
+    assert create_res.status_code == 200
+    created_data = create_res.json()
+    assert created_data["status"] == "SUCCESS"
+    wh_id = created_data["webhook"]["id"]
+
+    # Delete the created webhook
+    del_res = client.delete(f"/api/enterprise/webhooks/{wh_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["deleted_webhook_id"] == wh_id
+
+def test_enterprise_webhook_test_dispatch():
+    """Tests triggering an instant incident alert payload formatted for Slack."""
+    test_payload = {
+        "name": "Slack Emergency War Room",
+        "type": "slack",
+        "event_type": "CRYO_TEMP_BREACH",
+        "vehicle_id": "V-CRYO-02"
+    }
+    response = client.post("/api/enterprise/webhooks/test", json=test_payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "DELIVERED"
+    assert data["status_code"] == 200
+    assert "dispatched_payload" in data
+    assert data["event_type"] == "CRYO_TEMP_BREACH"
+
+def test_enterprise_webhook_deliveries_audit():
+    """Tests querying chronological webhook delivery history and latency metrics."""
+    response = client.get("/api/enterprise/webhooks/deliveries")
+    assert response.status_code == 200
+    data = response.json()
+    assert "deliveries" in data
+    assert len(data["deliveries"]) >= 1
+    assert "avg_latency_ms" in data
+    assert data["success_rate_percent"] == 100.0
+
 
 

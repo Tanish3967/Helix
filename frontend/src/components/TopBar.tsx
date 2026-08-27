@@ -24,7 +24,8 @@ import {
   Activity,
   Layers,
   FileText,
-  Globe
+  Globe,
+  Bell
 } from 'lucide-react';
 import { SimulationState } from '../types/fleet';
 import { ConnectionStatus } from '../services/websocket';
@@ -57,6 +58,7 @@ interface TopBarProps {
   onOpenConsole?: (tab?: 'disruptions' | 'fleet' | 'routes') => void;
   onOpenAuditLogs?: () => void;
   onOpenImporter?: () => void;
+  onOpenWebhooks?: () => void;
 }
 
 const NAV_TABS = [
@@ -93,7 +95,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenCryo,
   onOpenConsole,
   onOpenAuditLogs,
-  onOpenImporter
+  onOpenImporter,
+  onOpenWebhooks
 }) => {
   const [isSuiteOpen, setIsSuiteOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -313,6 +316,21 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span className="tracking-wider font-extrabold hidden md:inline">DATA STUDIO</span>
             <span className="px-1.5 py-0.2 rounded bg-emerald-500/30 text-[9.5px] text-emerald-200 border border-emerald-400/40 font-bold">
               CITIES / CSV
+            </span>
+          </button>
+        )}
+
+        {/* Dedicated Webhooks & Incident Alerting Hub Button */}
+        {onOpenWebhooks && (
+          <button
+            onClick={onOpenWebhooks}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-indigo-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-indigo-500/30 border border-indigo-500/50 hover:border-indigo-400 text-indigo-300 text-xs font-bold font-mono shadow-[0_0_18px_rgba(99,102,241,0.25)] transition-all hover:scale-105 active:scale-95"
+            title="Open Webhooks & Alerting Hub (Slack, PagerDuty, MS Teams Automated Incident Dispatch)"
+          >
+            <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span className="tracking-wider font-extrabold hidden md:inline">ALERTS</span>
+            <span className="px-1.5 py-0.2 rounded bg-indigo-500/30 text-[9.5px] text-indigo-200 border border-indigo-400/40 font-bold">
+              WEBHOOKS
             </span>
           </button>
         )}
