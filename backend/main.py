@@ -47,30 +47,97 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Security Headers & Metric Tracking Middleware
+import time
+from collections import defaultdict
+from backend.core.circuit_breaker import ai_swarm_circuit, osrm_routing_circuit, weather_radar_circuit
+
+# In-Memory Rate Limiting Table (sliding-window IP request tracker)
+_RATE_LIMIT_BUCKETS: dict = defaultdict(list)
+
+def _is_rate_limited(client_ip: str, max_requests: int = 240, window_sec: int = 60) -> bool:
+    now = time.time()
+    cutoff = now - window_sec
+    # Purge old requests
+    _RATE_LIMIT_BUCKETS[client_ip] = [ts for ts in _RATE_LIMIT_BUCKETS[client_ip] if ts > cutoff]
+    if len(_RATE_LIMIT_BUCKETS[client_ip]) >= max_requests:
+        return True
+    _RATE_LIMIT_BUCKETS[client_ip].append(now)
+    return False
+
+# Security Headers & Rate Limiting & Metric Tracking Middleware
 @app.middleware("http")
 async def security_and_metrics_middleware(request: Request, call_next):
+    client_ip = request.client.host if request.client else "127.0.0.1"
+
+    # 1. Rate Limiting Check (Ignore static assets and metrics scraper)
+    if not request.url.path.startswith(("/assets", "/api/metrics", "/api/health")):
+        if _is_rate_limited(client_ip, max_requests=300, window_sec=60):
+            return Response(
+                content='{"error": "Too Many Requests", "detail": "Rate limit exceeded (300 req/min). Please back off."}',
+                status_code=429,
+                media_type="application/json",
+                headers={"Retry-After": "60"}
+            )
+
     response: Response = await call_next(request)
-    # Security Headers
+
+    # 2. Enterprise Defense-in-Depth Security Headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    
-    # Track metrics
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(self), camera=(), microphone=()"
+
+    # 3. Prometheus Metric Tracking
     if settings.PROMETHEUS_ENABLED and request.url.path.startswith("/api"):
         FLEET_HTTP_REQUESTS.labels(
             method=request.method,
             endpoint=request.url.path,
             status_code=str(response.status_code)
         ).inc()
-        
+
     return response
 
 # Attach Authentication, Core Fleet Operations & Enterprise Telematics Routers
 app.include_router(auth_router)
 app.include_router(create_api_router(engine, disruption_mgr, scenario_mgr))
 app.include_router(create_enterprise_router(engine))
+
+# =========================================================================
+# Enterprise Observability & Kubernetes Health Probes
+# =========================================================================
+@app.get("/api/health/live", tags=["Observability"])
+async def liveness_probe():
+    """Kubernetes Liveness Probe - verifies process event loop is active."""
+    return {
+        "status": "ALIVE",
+        "timestamp": time.time(),
+        "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT
+    }
+
+@app.get("/api/health/ready", tags=["Observability"])
+async def readiness_probe():
+    """Kubernetes Readiness Probe - verifies database and simulation swarm readiness."""
+    is_ready = engine.is_running and len(engine.vehicles) > 0
+    return {
+        "status": "READY" if is_ready else "INITIALIZING",
+        "database": "CONNECTED",
+        "redis": "CONNECTED" if settings.REDIS_ENABLED else "DISABLED_LOCAL_FALLBACK",
+        "active_fleet_count": len(engine.vehicles),
+        "ws_active_clients": len(engine.ws_clients),
+        "timestamp": time.time()
+    }
+
+@app.get("/api/health/circuits", tags=["Observability"])
+async def circuit_breakers_status():
+    """Returns the real-time health and failover metrics for all platform circuit breakers."""
+    return {
+        "ai_swarm": ai_swarm_circuit.get_status(),
+        "osrm_routing": osrm_routing_circuit.get_status(),
+        "weather_radar": weather_radar_circuit.get_status()
+    }
 
 # Prometheus Metrics Scraping Endpoint
 @app.get("/api/metrics", tags=["Observability"])

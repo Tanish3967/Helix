@@ -49,6 +49,22 @@ class Settings(ConfigBase):
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24))
 
+    # Enterprise OIDC / SSO Configuration
+    OIDC_ENABLED: bool = os.getenv("OIDC_ENABLED", "false").lower() in ["true", "1", "yes"]
+    OIDC_ISSUER_URL: str = os.getenv("OIDC_ISSUER_URL", "https://auth.enterprise-fleet.com/oauth2/v1")
+    OIDC_CLIENT_ID: str = os.getenv("OIDC_CLIENT_ID", "fleetops-command-center")
+    OIDC_CLIENT_SECRET: str = os.getenv("OIDC_CLIENT_SECRET", "fleetops-oidc-secret-token-change-in-vault")
+    OIDC_AUDIENCE: str = os.getenv("OIDC_AUDIENCE", "api://fleetops")
+
+    # IoT Telematics Cryptographic Ingestion Security
+    TELEMATICS_HMAC_SECRET: str = os.getenv("TELEMATICS_HMAC_SECRET", "telematics-hardware-hmac-secret-2026")
+    TELEMATICS_ENFORCE_SIGNATURE: bool = os.getenv("TELEMATICS_ENFORCE_SIGNATURE", "false").lower() in ["true", "1", "yes"]
+    MAX_TIMESTAMP_DRIFT_SEC: int = int(os.getenv("MAX_TIMESTAMP_DRIFT_SEC", 60))
+
+    # Circuit Breaker & Fallback Resilience
+    CIRCUIT_BREAKER_FAIL_MAX: int = int(os.getenv("CIRCUIT_BREAKER_FAIL_MAX", 3))
+    CIRCUIT_BREAKER_RESET_TIMEOUT_SEC: int = int(os.getenv("CIRCUIT_BREAKER_RESET_TIMEOUT_SEC", 15))
+
     # Rate Limiting
     RATE_LIMIT_DEFAULT: str = os.getenv("RATE_LIMIT_DEFAULT", "120/minute")
     RATE_LIMIT_MUTATION: str = os.getenv("RATE_LIMIT_MUTATION", "30/minute")
